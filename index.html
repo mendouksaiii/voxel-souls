@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Voxel Souls: Chronicles of the Abyss</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d12; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  :root {
+    --pix: 'Press Start 2P', monospace;
+    --font-display: 'Cinzel', serif;
+    --font-ui: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; font-family: var(--pix);
+         color: #e8edf2; text-shadow: 2px 2px 0 #000; -webkit-font-smoothing: none; }
+  #topbar { position: absolute; top: 12px; left: 12px; right: 120px;
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .stat { font-size: 10px; line-height: 1.6; }
+  .stat b { color: #7fd96b; }
+  #wavewrap { text-align: center; flex: 1; }
+  #wave { font-size: 15px; color: #ffd24a; }
+  #wavesub { font-size: 8px; color: #9aa7b4; margin-top: 3px; }
+
+  /* Mute / Audio Toggle Button */
+  #mutebtn { pointer-events: auto; cursor: pointer; background: #151922; border: 2px solid #000;
+             box-shadow: 2px 2px 0 #000; padding: 6px 8px; color: #cbd5e1; display: inline-flex;
+             align-items: center; justify-content: center; transition: border-color .15s, color .15s; }
+  #mutebtn:hover { border-color: #ffd24a; color: #ffd24a; }
+
+  /* Minimap / Threat Radar */
+  #minimap-wrap { position: absolute; top: 12px; right: 12px; width: 96px; height: 96px;
+                  border: 3px solid #000; box-shadow: 3px 3px 0 #000; border-radius: 50%;
+                  background: rgba(11, 13, 18, 0.88); overflow: hidden; pointer-events: auto; }
+  #minimap { display: block; width: 100%; height: 100%; border-radius: 50%; }
+
+  /* Cinematic Boss Health Bar */
+  #bossbar { position: absolute; top: 68px; left: 50%; transform: translateX(-50%);
+             width: min(540px, 80vw); display: none; flex-direction: column; gap: 4px; pointer-events: auto; }
+  #bossmeta { display: flex; justify-content: space-between; align-items: center; font-size: 8px; }
+  #bossname { color: #ffd24a; font-size: 9px; font-weight: bold; }
+  #bosstitle { color: #f87171; font-size: 7px; letter-spacing: 0.5px; }
+  #bosstrack { position: relative; height: 16px; background: #161a22; border: 3px solid #000;
+               box-shadow: 3px 3px 0 #000; overflow: hidden; }
+  #bossghostfill { position: absolute; inset: 0; background: #f97316; width: 100%; transition: width .35s ease; }
+  #bossfill { position: absolute; inset: 0; background: #dc2626; width: 100%; transition: width .08s linear; }
+  #bossval { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+             font-size: 8px; color: #fff; mix-blend-mode: difference; }
+  #boss-sequence-cast { display: none; align-items: center; gap: 8px; margin-top: 3px; font-size: 8px; color: #ffd24a; font-weight: 700; letter-spacing: 1px; font-family: var(--font-display); }
+  #boss-sequence-cast.show { display: flex; }
+  #boss-sequence-bar { flex: 1; height: 5px; background: rgba(0, 0, 0, 0.7); border: 1px solid rgba(255, 210, 74, 0.4); border-radius: 2px; overflow: hidden; }
+  #boss-sequence-fill { height: 100%; width: 0%; background: linear-gradient(to right, #ffd24a, #f97316, #ef4444); transition: width .05s linear; }
+
+  /* Cinematic Wave Announcement Banner */
+  #wavebanner { position: absolute; top: 130px; left: 50%; transform: translateX(-50%) scale(0.9);
+                text-align: center; pointer-events: none; opacity: 0; transition: opacity .35s ease, transform .35s ease; }
+  #wavebanner.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  #wb-title { font-size: 24px; color: #ffd24a; text-shadow: 0 0 16px rgba(255, 210, 74, 0.6), 3px 3px 0 #000; }
+  #wb-sub { font-size: 10px; color: #7fd96b; margin-top: 6px; letter-spacing: 1px; }
+
+  /* Combo / Streak Meter */
+  #combobox { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%);
+              background: #151922; border: 2px solid #f59e0b; box-shadow: 0 0 12px rgba(245, 158, 11, 0.35), 2px 2px 0 #000;
+              padding: 4px 10px; display: none; align-items: center; gap: 6px; font-size: 8px;
+              color: #ffd24a; animation: pulseCombo .8s infinite alternate; }
+  @keyframes pulseCombo { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.05); } }
+
+  /* HP + XP bars */
+  #bars { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+          width: min(520px, 70vw); }
+  .bar { height: 18px; border: 3px solid #000; background: #1b2029; margin-top: 6px;
+         position: relative; image-rendering: pixelated; }
+  .bar > span { position: absolute; inset: 0; width: 0%; transition: width .12s linear; }
+  #hpfill { background: #d64545; }
+  #xpfill { background: #45a9d6; height: 10px; }
+  #xp.bar { height: 10px; }
+  .barlabel { position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+              font-size: 8px; color: #fff; mix-blend-mode: difference; }
+
+  /* Special ability buttons bar */
+  #specials { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%);
+              display: flex; gap: 14px; pointer-events: auto; }
+  .skill-slot { position: relative; width: 56px; height: 56px; background: #151922; border: 3px solid #000;
+                box-shadow: 3px 3px 0 #000; display: flex; flex-direction: column; align-items: center;
+                justify-content: center; cursor: pointer; user-select: none;
+                transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+  .skill-slot:hover { transform: translateY(-2px); border-color: #ffd24a; }
+  .skill-slot:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #000; }
+  .skill-icon { font-size: 18px; z-index: 2; display: flex; align-items: center; justify-content: center; }
+  .skill-key { position: absolute; top: -8px; left: -6px; background: #ffd24a; color: #000;
+               font-size: 8px; font-weight: bold; padding: 2px 5px; border: 2px solid #000; }
+  .skill-name { font-size: 6px; color: #cbd5e1; margin-top: 3px; max-width: 52px; overflow: hidden;
+                text-overflow: ellipsis; white-space: nowrap; z-index: 2; text-align: center; }
+  .skill-cd-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.72); width: 100%;
+                      height: 0%; bottom: 0; top: auto; transition: height .08s linear; z-index: 1; }
+  .skill-ready { border-color: #ffd24a; box-shadow: 0 0 10px rgba(255, 210, 74, 0.4), 3px 3px 0 #000; }
+
+  /* SVG Icons */
+  .lbs-icon { display: inline-flex; align-items: center; justify-content: center; }
+  .lbs-icon svg { width: 100%; height: 100%; }
+
+  /* floating damage numbers */
+  #dmglayer { position: absolute; inset: 0; overflow: hidden; }
+  .dmg { position: absolute; font-family: var(--pix); font-size: 13px; font-weight: 700;
+         will-change: transform, opacity; text-shadow: 2px 2px 0 #000; }
+  .dmg.crit { font-size: 16px; color: #ffd24a; text-shadow: 0 0 10px #f59e0b, 2px 2px 0 #000; }
+
+  /* overlays */
+  .overlay { position: fixed; inset: 0; display: none; flex-direction: column;
+             align-items: center; justify-content: center; gap: 20px;
+             background: rgba(6,8,12,.86); font-family: var(--pix); color: #e8edf2;
+             text-align: center; padding: 24px; z-index: 10; }
+  .overlay.show { display: flex; }
+  .overlay h1 { font-size: 28px; color: #ffd24a; letter-spacing: 1px; line-height: 1.4; }
+  .overlay h2 { font-size: 14px; color: #7fd96b; }
+  .overlay p { font-size: 10px; color: #9aa7b4; line-height: 2; max-width: 560px; }
+  .btn { pointer-events: auto; cursor: pointer; font-family: var(--pix); font-size: 12px;
+         color: #0b0d12; background: #7fd96b; border: 4px solid #000; padding: 14px 22px;
+         box-shadow: 4px 4px 0 #000; transition: transform .1s, background .15s; }
+  .btn:hover { background: #95ea82; }
+  .btn:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 #000; }
+  .keys { display: grid; grid-template-columns: auto auto; gap: 6px 18px; font-size: 9px;
+          color: #c3ccd6; }
+  .keys b { color: #ffd24a; }
+
+  /* Perk Draft Cards */
+  #perkdraft { position: fixed; inset: 0; display: none; align-items: center;
+               justify-content: center; gap: 18px; background: rgba(6,8,12,.7);
+               font-family: var(--pix); z-index: 9; flex-wrap: wrap; }
+  #perkdraft.show { display: flex; }
+  .perkcard { position: relative; pointer-events: auto; cursor: pointer; width: 220px; min-height: 240px;
+              background: #161b24; border: 4px solid #000; box-shadow: 6px 6px 0 #000;
+              padding: 16px; display: flex; flex-direction: column; gap: 10px; color: #e8edf2;
+              transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+  .perkcard:hover { transform: translateY(-4px); border-color: #ffd24a; }
+  .perkcard .ptitle { font-size: 11px; color: #ffd24a; line-height: 1.5; }
+  .perkcard .pdesc { font-size: 8px; color: #c3ccd6; line-height: 1.9; flex: 1; }
+  .perkcard .pkey { font-size: 9px; color: #7fd96b; }
+  .perkcard .picon { font-size: 32px; text-align: center; display: flex; justify-content: center; align-items: center; }
+  .rarity-badge { position: absolute; top: -8px; right: 10px; font-size: 7px; padding: 2px 6px;
+                  border: 2px solid #000; font-weight: bold; }
+  .perk-common .rarity-badge { background: #64748b; color: #fff; }
+  .perk-rare { border-color: #0284c7; box-shadow: 0 0 16px rgba(56,189,248,0.2), 6px 6px 0 #000; }
+  .perk-rare .rarity-badge { background: #0284c7; color: #fff; }
+  .perk-epic { border-color: #9333ea; box-shadow: 0 0 20px rgba(192,132,252,0.3), 6px 6px 0 #000; }
+  .perk-epic .rarity-badge { background: #9333ea; color: #fff; }
+  .perk-legendary { border-color: #f59e0b; box-shadow: 0 0 24px rgba(255,215,0,0.4), 6px 6px 0 #000; }
+  .perk-legendary .rarity-badge { background: #f59e0b; color: #000; }
+
+  #hint { position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%);
+          font-family: var(--pix); font-size: 9px; color: #9aa7b4; text-shadow: 1px 1px 0 #000; }
+
+  #loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: #0b0d12; color: #7fd96b; font-family: var(--pix); font-size: 12px; z-index: 20; }
+
+  #speedlines { position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0; transition: opacity .15s ease; }
+
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5;
+              box-shadow: inset 0 0 160px 50px rgba(0,0,0,.7); transition: box-shadow .2s ease; }
+  #vignette.danger { box-shadow: inset 0 0 220px 80px rgba(239,68,68,.4), inset 0 0 120px 40px rgba(0,0,0,.8); }
+
+  /* ========================================================
+     CLASSIC AAA HERO SCREEN & EXPEDITION DOCK (VOXEL SOULS)
+     ======================================================== */
+  #menu {
+    background: radial-gradient(circle at 50% 45%, rgba(14, 165, 233, 0.04) 0%, rgba(10, 14, 22, 0.4) 40%, rgba(6, 8, 12, 0.88) 85%),
+                linear-gradient(to bottom, rgba(6, 8, 12, 0.85) 0%, rgba(6, 8, 12, 0.25) 25%, rgba(6, 8, 12, 0.25) 75%, rgba(6, 8, 12, 0.95) 100%);
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    text-align: left;
+    backdrop-filter: blur(1.5px);
+    overflow: hidden;
+    font-family: var(--font-ui);
+    color: #e2e8f0;
+  }
+  #aaa-hero-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 18px 32px;
+    z-index: 2;
+    pointer-events: none;
+    position: relative;
+  }
+  #aaa-hero-screen * { pointer-events: auto; }
+
+  /* 1. TOP HEADER */
+  #aaa-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 48px;
+    z-index: 10;
+  }
+  .aaa-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .aaa-brand-icon {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+    filter: drop-shadow(0 0 8px rgba(255, 210, 74, 0.5));
+  }
+  .aaa-brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .aaa-brand-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ffd24a;
+    text-shadow: 0 0 16px rgba(255, 210, 74, 0.4);
+    line-height: 1;
+  }
+  .aaa-brand-sub {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    color: #94a3b8;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .aaa-realm-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    border-radius: 999px;
+    padding: 6px 18px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #94a3b8;
+  }
+  .realm-step { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+  .realm-step.current { color: #ffd24a; font-weight: 700; text-shadow: 0 0 10px rgba(255, 210, 74, 0.4); }
+  .step-num { color: #38bdf8; font-weight: 700; font-size: 10px; }
+  .realm-step.current .step-num { color: #ffd24a; }
+  .step-sep { color: #334155; }
+
+  .aaa-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .aaa-record-badge {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 210, 74, 0.25);
+    border-radius: 6px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  .rec-label { color: #94a3b8; font-size: 9px; font-weight: 600; letter-spacing: 1px; }
+  .rec-val { color: #ffd24a; font-weight: 700; font-family: var(--font-display); }
+
+  .aaa-icon-btn {
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #ffd24a;
+    background: rgba(21, 25, 34, 0.75);
+    border: 1px solid rgba(255, 210, 74, 0.3);
+    border-radius: 6px;
+    padding: 7px 14px;
+    transition: all .2s ease;
+  }
+  .aaa-icon-btn:hover {
+    border-color: #ffd24a;
+    background: rgba(30, 41, 59, 0.85);
+    box-shadow: 0 0 12px rgba(255, 210, 74, 0.3);
+    transform: translateY(-1px);
+  }
+
+  /* 2. MAIN 3-ZONE HERO STAGE */
+  #aaa-stage {
+    display: grid;
+    grid-template-columns: 360px 1fr 380px;
+    align-items: center;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    padding: 10px 0;
+    gap: 20px;
+  }
+
+  .aaa-panel {
+    background: rgba(11, 15, 23, 0.78);
+    border: 1px solid rgba(255, 210, 74, 0.2);
+    border-radius: 12px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 520px;
+    overflow-y: auto;
+    z-index: 5;
+  }
+  .aaa-panel::-webkit-scrollbar { width: 4px; }
+  .aaa-panel::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+  /* Left Panel: Hero Identity */
+  .hero-archetype-badge {
+    align-self: flex-start;
+    background: rgba(14, 165, 233, 0.15);
+    border: 1px solid #0284c7;
+    color: #38bdf8;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 3px 10px;
+    border-radius: 4px;
+  }
+  .hero-display-name {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 900;
+    color: #ffd24a;
+    letter-spacing: 2px;
+    line-height: 1;
+    text-shadow: 0 0 20px rgba(255, 210, 74, 0.4);
+    margin-top: -4px;
+  }
+  .hero-display-title {
+    font-size: 13px;
+    color: #7fd96b;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-top: -8px;
+  }
+  .hero-lore-bio {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+
+  .aaa-section-heading {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    color: #ffd24a;
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 6px;
+  }
+
+  .hero-stat-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .stat-row {
+    display: grid;
+    grid-template-columns: 88px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+  }
+  .srow-label { color: #cbd5e1; font-weight: 600; letter-spacing: 0.5px; }
+  .srow-bar-wrap {
+    height: 7px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .srow-bar {
+    height: 100%;
+    background: linear-gradient(to right, #0284c7, #38bdf8);
+    border-radius: 999px;
+    transition: width .3s ease;
+  }
+  #stat-bar-dur { background: linear-gradient(to right, #ea580c, #f59e0b); }
+  #stat-bar-dmg { background: linear-gradient(to right, #dc2626, #f43f5e); }
+  .srow-val { text-align: right; color: #ffd24a; font-weight: 700; font-size: 9px; }
+
+  .hero-passive-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .hpc-header { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+  .hpc-tag { color: #38bdf8; font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+  .hpc-name { color: #ffd24a; font-weight: 700; font-family: var(--font-display); }
+  .hpc-desc { font-size: 11px; color: #94a3b8; line-height: 1.45; }
+
+  /* Center: 3D Viewport */
+  #aaa-center-viewport {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .pedestal-glow {
+    width: 220px;
+    height: 36px;
+    background: radial-gradient(ellipse at center, rgba(255, 210, 74, 0.35) 0%, rgba(255, 210, 74, 0) 70%);
+    border-radius: 50%;
+    filter: blur(8px);
+    margin-bottom: 20px;
+  }
+
+  /* Right Panel: Arsenal & Specials */
+  .weapon-feature-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 210, 74, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .wfc-icon {
+    width: 34px;
+    height: 34px;
+    background: rgba(255, 210, 74, 0.12);
+    border: 1px solid #ffd24a;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+    flex-shrink: 0;
+  }
+  .wfc-meta { flex: 1; min-width: 0; }
+  .wfc-name { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: #fff; }
+  .wfc-type { font-size: 10px; color: #7fd96b; font-weight: 500; }
+  .wfc-stats { display: flex; flex-direction: column; align-items: flex-end; font-size: 10px; color: #cbd5e1; gap: 2px; }
+  .wfc-stats b { color: #ffd24a; }
+
+  .abilities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ability-card {
+    display: flex;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: border-color .2s ease;
+  }
+  .ability-card:hover { border-color: rgba(255, 210, 74, 0.35); }
+  .ability-card.ultimate {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  .ab-key-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .ab-key-pill {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e2e8f0;
+    font-size: 10px;
+    font-weight: 800;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ab-key-pill.ult {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #ffd24a;
+    color: #ffd24a;
+  }
+  .ab-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+  }
+  .ab-meta { flex: 1; min-width: 0; }
+  .ab-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+  .ab-name { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: #fff; }
+  .ab-name.ult { color: #ffd24a; }
+  .ab-cd { font-size: 9px; color: #38bdf8; font-weight: 600; }
+  .ab-desc { font-size: 11px; color: #94a3b8; line-height: 1.45; }
+
+  /* 3. BOTTOM ROSTER CAROUSEL & DEPLOY BAR */
+  #aaa-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 80px;
+    gap: 20px;
+    z-index: 10;
+  }
+  #aaa-roster-dock {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .roster-card {
+    cursor: pointer;
+    background: rgba(15, 23, 42, 0.75);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #e2e8f0;
+    min-width: 175px;
+    text-align: left;
+    transition: all .2s ease;
+  }
+  .roster-card:hover {
+    border-color: #38bdf8;
+    background: rgba(30, 41, 59, 0.85);
+    transform: translateY(-3px);
+  }
+  .roster-card.active {
+    border-color: #ffd24a;
+    background: rgba(30, 38, 54, 0.9);
+    box-shadow: 0 0 20px rgba(255, 210, 74, 0.35);
+    transform: translateY(-3px);
+  }
+  .rc-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+  }
+  .rc-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .rc-name { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+  .rc-role { font-size: 10px; color: #94a3b8; }
+  .rc-indicator {
+    font-size: 8px;
+    font-weight: 700;
+    color: #ffd24a;
+    background: rgba(255, 210, 74, 0.15);
+    padding: 2px 5px;
+    border-radius: 3px;
+    display: none;
+  }
+  .roster-card.active .rc-indicator { display: block; }
+
+  #aaa-deploy-wrap { display: flex; align-items: center; }
+  .aaa-deploy-btn {
+    position: relative;
+    cursor: pointer;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: 2px solid #ffd24a;
+    border-radius: 8px;
+    padding: 14px 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    box-shadow: 0 0 28px rgba(245, 158, 11, 0.4), 0 8px 16px rgba(0, 0, 0, 0.5);
+    transition: all .2s ease;
+    overflow: hidden;
+  }
+  .aaa-deploy-btn:hover {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    box-shadow: 0 0 36px rgba(245, 158, 11, 0.65), 0 10px 20px rgba(0, 0, 0, 0.6);
+    transform: translateY(-2px) scale(1.02);
+  }
+  .aaa-deploy-btn:active {
+    transform: translateY(1px) scale(0.99);
+  }
+  .deploy-label {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 900;
+    color: #0b0d12;
+    letter-spacing: 1.5px;
+  }
+  .deploy-key-hint {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: rgba(11, 13, 18, 0.85);
+    letter-spacing: 0.5px;
+  }
+
+  /* 4. EXPEDITION CODEX MODAL */
+  #guidemodal {
+    font-family: var(--font-ui);
+    backdrop-filter: blur(8px);
+    background: rgba(6, 8, 12, 0.88);
+  }
+  #guide-box {
+    max-width: 680px;
+    width: 90%;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(255, 210, 74, 0.35);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-align: left;
+  }
+  #guide-box h1 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+  .sub-btn {
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 6px 12px;
+    transition: all .15s ease;
+  }
+  .sub-btn:hover {
+    color: #fff;
+    border-color: #ffd24a;
+    background: rgba(255, 210, 74, 0.15);
+  }
+  .guide-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .guide-card {
+    background: rgba(11, 15, 23, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .gcard-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    color: #38bdf8;
+    letter-spacing: 1px;
+  }
+  .guide-card p {
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+  .guide-card p b {
+    color: #ffd24a;
+  }
+  #guide-ok-btn {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: 1px solid #ffd24a;
+    border-radius: 6px;
+    color: #0b0d12;
+    padding: 10px;
+  }
+
+  /* Responsive Adjustments & Mobile Optimization */
+  @media (max-width: 1200px) {
+    #aaa-stage { grid-template-columns: 310px 1fr 320px; gap: 14px; }
+    .hero-display-name { font-size: 28px; }
+    .roster-card { min-width: 140px; padding: 6px 12px; }
+  }
+
+  @media (max-width: 900px) {
+    #aaa-hero-screen { padding: 12px 14px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #aaa-header { padding: 8px 12px; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+    .aaa-realm-indicator { display: none; }
+    #aaa-stage { display: flex; flex-direction: column; gap: 14px; overflow: visible; height: auto; }
+    #aaa-center-viewport { height: 260px; min-height: 260px; order: 1; }
+    #aaa-left-panel { order: 2; padding: 14px; width: 100%; }
+    #aaa-right-panel { order: 3; padding: 14px; width: 100%; }
+    #aaa-footer {
+      position: sticky; bottom: 0; background: rgba(11, 15, 23, 0.96);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      padding: 10px 0 6px; border-top: 1px solid rgba(255, 210, 74, 0.3);
+      z-index: 80; flex-direction: column; height: auto;
+    }
+    #aaa-roster-dock {
+      width: 100%; overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start;
+      padding-bottom: 8px; -webkit-overflow-scrolling: touch;
+    }
+    .roster-card { min-width: 135px; flex-shrink: 0; }
+    #aaa-deploy-wrap { width: 100%; }
+    #startbtn { width: 100%; height: 50px; font-size: 13px; }
+    .deploy-key-hint { display: none; }
+    .guide-grid { grid-template-columns: 1fr; }
+    #bars { bottom: auto; top: 68px; width: min(390px, 88vw); }
+    #specials { display: none; } /* Replaced by ergonomic touch pad */
+    #hint { display: none; }
+    #topbar { padding: 6px 12px; }
+    #minimap-wrap { width: 72px; height: 72px; top: 58px; right: 12px; }
+    #minimap { width: 72px; height: 72px; }
+  }
+
+  /* 4. VIRTUAL TOUCH CONTROLS (MOBILE OPTIMIZATION) */
+  #touch-controls {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 45;
+    display: none;
+  }
+  body.touch-device #touch-controls,
+  @media (pointer: coarse) {
+    #touch-controls { display: block; }
+  }
+
+  /* Locomotion Virtual Joystick (Left Thumb) */
+  #touch-joystick-zone {
+    position: absolute;
+    left: 18px;
+    bottom: 22px;
+    width: 140px;
+    height: 140px;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #touch-joystick-base {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.65) 100%);
+    border: 2px solid rgba(255, 210, 74, 0.45);
+    box-shadow: 0 0 18px rgba(0,0,0,0.65), inset 0 0 14px rgba(255, 210, 74, 0.18);
+    position: relative;
+    touch-action: none;
+  }
+  #touch-joystick-base::before {
+    content: '';
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    border: 1px dashed rgba(255, 210, 74, 0.28);
+    pointer-events: none;
+  }
+  #touch-joystick-knob {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fde047 0%, #ca8a04 70%, #854d0e 100%);
+    border: 2px solid #ffffff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.7), 0 0 10px rgba(253, 224, 71, 0.5);
+    position: absolute;
+    left: 39px;
+    top: 39px;
+    pointer-events: none;
+    transition: transform 0.04s ease-out;
+  }
+
+  /* Right-Thumb Action Pad */
+  #touch-action-pad {
+    position: absolute;
+    right: 16px;
+    bottom: 18px;
+    width: 200px;
+    height: 200px;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Big Phantom Dash Button */
+  .touch-btn-dash {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #0284c7 0%, #0369a1 70%, #075985 100%);
+    border: 2px solid #7dd3fc;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.5), 0 6px 12px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    cursor: pointer;
+    touch-action: manipulation;
+    overflow: hidden;
+    transition: transform 0.08s ease, filter 0.15s ease;
+  }
+  .touch-btn-dash:active {
+    transform: scale(0.92);
+    filter: brightness(1.25);
+  }
+  .touch-btn-dash .tb-icon {
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .touch-btn-dash .tb-label {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-top: 1px;
+    font-family: var(--font-display);
+  }
+
+  /* Ergonomic Ability Fan */
+  .touch-btn-skill {
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border: 2px solid #ffd24a;
+    box-shadow: 0 0 14px rgba(255, 210, 74, 0.25), 0 4px 10px rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+    cursor: pointer;
+    touch-action: manipulation;
+    overflow: hidden;
+    transition: transform 0.08s ease;
+  }
+  .touch-btn-skill:active {
+    transform: scale(0.92);
+  }
+  #touch-btn-q {
+    right: 96px;
+    bottom: 6px;
+  }
+  #touch-btn-e {
+    right: 84px;
+    bottom: 74px;
+  }
+  #touch-btn-r {
+    right: 8px;
+    bottom: 96px;
+    border-color: #f43f5e;
+    color: #f43f5e;
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+  }
+  .tb-badge {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 8px;
+    font-weight: 800;
+    color: #fff;
+    opacity: 0.85;
+    font-family: var(--font-display);
+    pointer-events: none;
+  }
+  .touch-cd-fill {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    height: 0%;
+    pointer-events: none;
+    transition: height 0.08s linear;
+  }
+
+  /* Contextual Portal Descent Button */
+  #touch-portal-btn {
+    position: absolute;
+    right: 14px;
+    bottom: 168px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: 2px solid #fef08a;
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.7), 0 4px 12px rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 11px;
+    color: #0b0d12;
+    cursor: pointer;
+    touch-action: manipulation;
+    animation: portalPulse 1.4s infinite alternate;
+  }
+  #touch-portal-btn.show {
+    display: flex;
+  }
+  @keyframes portalPulse {
+    from { transform: scale(1); box-shadow: 0 0 18px rgba(245, 158, 11, 0.5); }
+    to { transform: scale(1.05); box-shadow: 0 0 30px rgba(245, 158, 11, 0.9); }
+  }
+
+  /* Top Mini Action Buttons (Pause & Sound) */
+  .hud-mini-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 210, 74, 0.4);
+    color: #ffd24a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .hud-mini-btn:active {
+    background: rgba(255, 210, 74, 0.2);
+  }
+
+  /* 5. REALM WAYGATE PROMPT & WARP OVERLAYS */
+  #waygate-prompt {
+    position: absolute;
+    bottom: 95px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(15, 23, 42, 0.92);
+    border: 2px solid #ffd24a;
+    border-radius: 8px;
+    box-shadow: 0 0 28px rgba(255, 210, 74, 0.4), 0 8px 16px rgba(0, 0, 0, 0.6);
+    padding: 10px 20px;
+    display: none;
+    align-items: center;
+    gap: 16px;
+    z-index: 10;
+    pointer-events: none;
+    transition: all .25s ease;
+    opacity: 0;
+  }
+  #waygate-prompt.show {
+    display: flex;
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    animation: promptPulse 1.8s infinite ease-in-out;
+  }
+  @keyframes promptPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 210, 74, 0.35); }
+    50% { box-shadow: 0 0 35px rgba(255, 210, 74, 0.7); }
+  }
+  .wp-icon { font-size: 18px; color: #ffd24a; }
+  .wp-body { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+  .wp-title { font-family: var(--font-display); font-size: 12px; font-weight: 800; color: #ffd24a; letter-spacing: 1px; }
+  .wp-desc { font-size: 10.5px; color: #e2e8f0; font-weight: 500; }
+  .wp-key {
+    background: rgba(255, 210, 74, 0.2);
+    border: 1px solid #ffd24a;
+    color: #ffd24a;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  /* Full-Screen Realm Warp Cinematic Overlay */
+  #realm-warp-overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle, rgba(15, 23, 42, 0.85) 0%, rgba(6, 8, 12, 0.98) 85%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    opacity: 0;
+    transition: opacity .4s ease;
+    backdrop-filter: blur(8px);
+  }
+  #realm-warp-overlay.show {
+    display: flex;
+    opacity: 1;
+  }
+  .rwo-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    transform: scale(0.92);
+    transition: transform .5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  #realm-warp-overlay.show .rwo-content {
+    transform: scale(1);
+  }
+  .rwo-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #ffd24a;
+    background: rgba(255, 210, 74, 0.15);
+    border: 1px solid rgba(255, 210, 74, 0.3);
+    padding: 4px 14px;
+    border-radius: 999px;
+  }
+  .rwo-title {
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .rwo-realm-name {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #fff;
+    text-shadow: 0 0 35px rgba(255, 210, 74, 0.6);
+  }
+  .rwo-sub {
+    font-size: 14px;
+    color: #cbd5e1;
+    font-style: italic;
+    letter-spacing: 1px;
+  }
+  .rwo-ring {
+    width: 60px;
+    height: 60px;
+    border: 3px solid rgba(255, 210, 74, 0.2);
+    border-top-color: #ffd24a;
+    border-radius: 50%;
+    margin-top: 14px;
+    animation: spin 1s infinite linear;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Victory Modal */
+  #victorymodal {
+    font-family: var(--font-ui);
+    backdrop-filter: blur(12px);
+    background: rgba(6, 8, 12, 0.94);
+  }
+  #victory-box {
+    max-width: 640px;
+    width: 90%;
+    background: rgba(15, 23, 42, 0.96);
+    border: 2px solid #ffd24a;
+    border-radius: 14px;
+    box-shadow: 0 0 60px rgba(255, 210, 74, 0.35), 0 20px 50px rgba(0, 0, 0, 0.8);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+  .vic-crest { font-size: 28px; color: #ffd24a; }
+  #victitle {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #ffd24a;
+    text-shadow: 0 0 24px rgba(255, 210, 74, 0.5);
+    margin: 0;
+  }
+  #vicsub {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #38bdf8;
+    margin-top: -6px;
+  }
+  .vic-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    margin-top: 10px;
+  }
+  .vstat-card {
+    background: rgba(11, 15, 23, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .vstat-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 800;
+    color: #ffd24a;
+  }
+  .vstat-lbl {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <canvas id="speedlines"></canvas>
+  <div id="powerup-flash"></div>
+
+  <!-- Cinematic Realm Transition Banner -->
+  <div id="realm-warp-overlay">
+    <div class="rwo-content">
+      <div class="rwo-badge">✦ REALM PURIFIED ✦</div>
+      <div class="rwo-title" id="rwo-title">DESCENDING TO REALM II</div>
+      <div class="rwo-realm-name" id="rwo-realm-name">THE INFERNO</div>
+      <div class="rwo-sub" id="rwo-sub">Brimstone Bastion & Molten Chasms</div>
+      <div class="rwo-ring"></div>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div id="topbar">
+      <div class="stat" id="statleft">LVL <b id="lvl">1</b><br/>KILLS <b id="kills">0</b></div>
+      <div id="wavewrap"><div id="wave">WAVE 1</div><div id="wavesub">STONE DUNGEON</div></div>
+      <div class="stat" id="statright" style="text-align:right">
+        TIME <b id="time">0:00</b><br/>
+        <div style="display:inline-flex;gap:6px;align-items:center;margin-top:2px">
+          <button id="mobile-pause-btn" class="hud-mini-btn" title="Pause Game"></button>
+          <button id="mutebtn" class="hud-mini-btn" title="Toggle Sound"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minimap Radar -->
+    <div id="minimap-wrap">
+      <canvas id="minimap" width="96" height="96"></canvas>
+    </div>
+
+    <!-- Boss Health Bar -->
+    <div id="bossbar">
+      <div id="bossmeta">
+        <span id="bossname">BOSS</span>
+        <span id="bosstitle">ENCOUNTER</span>
+      </div>
+      <div id="bosstrack">
+        <div id="bossghostfill"></div>
+        <div id="bossfill"></div>
+        <div id="bossval">0 / 0</div>
+      </div>
+      <div id="boss-sequence-cast">
+        <span id="boss-sequence-name">ATTACK SEQUENCE</span>
+        <div id="boss-sequence-bar"><div id="boss-sequence-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Wave Announcement Banner -->
+    <div id="wavebanner">
+      <div id="wb-title">WAVE 1</div>
+      <div id="wb-sub">WHISPERING FOREST</div>
+    </div>
+
+    <!-- Combo Streak Box -->
+    <div id="combobox">
+      <span id="combocount">COMBO x0</span>
+      <span id="comborate" style="font-size:7px;color:#7fd96b">+0% XP</span>
+    </div>
+
+    <div id="dmglayer"></div>
+    <div id="specials"></div>
+    <div id="bars">
+      <div class="bar" id="hp"><span id="hpfill"></span><div class="barlabel" id="hplabel">100 / 100</div></div>
+      <div class="bar" id="xp"><span id="xpfill"></span></div>
+    </div>
+    <!-- Realm Waygate Descent Prompt -->
+    <div id="waygate-prompt">
+      <div class="wp-icon">✦</div>
+      <div class="wp-body">
+        <div class="wp-title" id="wp-title">REALM DESCENT WAYGATE UNLOCKED</div>
+        <div class="wp-desc" id="wp-desc">STEP INTO THE VORTEX TO ENTER REALM II</div>
+      </div>
+      <div class="wp-key">[ E / WALK IN ]</div>
+    </div>
+
+    <!-- Mobile Virtual Touch Controls -->
+    <div id="touch-controls">
+      <!-- Locomotion Joystick (Left Thumb) -->
+      <div id="touch-joystick-zone">
+        <div id="touch-joystick-base">
+          <div id="touch-joystick-knob"></div>
+        </div>
+      </div>
+
+      <!-- Action Pad (Right Thumb) -->
+      <div id="touch-action-pad">
+        <!-- Floating Contextual Waygate Descent Button -->
+        <button id="touch-portal-btn" class="touch-btn" title="Enter Waygate">
+          <span class="tb-icon" id="tb-icon-portal"></span>
+          <span>DESCEND</span>
+        </button>
+
+        <!-- 3 Special Talents Arc -->
+        <div id="touch-specials-cluster">
+          <button id="touch-btn-q" class="touch-btn touch-btn-skill" data-idx="0" title="Special Ability 1">
+            <span class="tb-badge">Q</span>
+            <span class="tb-icon" id="tb-icon-q"></span>
+            <div class="touch-cd-fill" id="touch-cd-q"></div>
+          </button>
+          <button id="touch-btn-e" class="touch-btn touch-btn-skill" data-idx="1" title="Special Ability 2">
+            <span class="tb-badge">E</span>
+            <span class="tb-icon" id="tb-icon-e"></span>
+            <div class="touch-cd-fill" id="touch-cd-e"></div>
+          </button>
+          <button id="touch-btn-r" class="touch-btn touch-btn-skill" data-idx="2" title="Special Ability 3">
+            <span class="tb-badge">R</span>
+            <span class="tb-icon" id="tb-icon-r"></span>
+            <div class="touch-cd-fill" id="touch-cd-r"></div>
+          </button>
+        </div>
+
+        <!-- Big Phantom Dash Button -->
+        <button id="touch-dash-btn" class="touch-btn touch-btn-dash" title="Phantom Dash">
+          <span class="tb-icon" id="tb-icon-dash"></span>
+          <span class="tb-label">DASH</span>
+          <div class="touch-cd-fill" id="touch-dash-cd"></div>
+        </button>
+      </div>
+    </div>
+
+    <div id="hint">WASD move &nbsp;·&nbsp; SPACE dash &nbsp;·&nbsp; Q, E, R specials</div>
+  </div>
+
+  <div id="perkdraft"></div>
+
+  <div class="overlay" id="menu">
+    <div id="aaa-hero-screen">
+      <!-- 1. TOP HEADER -->
+      <header id="aaa-header">
+        <div class="aaa-brand">
+          <span class="aaa-brand-icon" id="brand-crest-icon"></span>
+          <div class="aaa-brand-text">
+            <span class="aaa-brand-title">VOXEL SOULS</span>
+            <span class="aaa-brand-sub">CHRONICLES OF THE ABYSS</span>
+          </div>
+        </div>
+
+        <div class="aaa-realm-indicator">
+          <div class="realm-step current"><span class="step-num">[I]</span> FORGOTTEN SANCTUM</div>
+          <span class="step-sep">▸</span>
+          <div class="realm-step"><span class="step-num">[II]</span> THE INFERNO</div>
+          <span class="step-sep">▸</span>
+          <div class="realm-step"><span class="step-num">[III]</span> ABYSSAL VOID</div>
+        </div>
+
+        <div class="aaa-top-actions">
+          <div class="aaa-record-badge">
+            <span class="rec-label">RECORD:</span>
+            <span class="rec-val" id="home-record">WAVE 1</span>
+          </div>
+          <button id="guide-open-btn" class="aaa-icon-btn">
+            EXPEDITION CODEX
+          </button>
+        </div>
+      </header>
+
+      <!-- 2. MAIN 3-ZONE HERO STAGE -->
+      <main id="aaa-stage">
+        <!-- Left Wing: Hero Identity & Core Traits -->
+        <div class="aaa-panel" id="aaa-left-panel">
+          <div class="hero-archetype-badge" id="hero-archetype-badge">VANGUARD SOVEREIGN</div>
+          <div class="hero-display-name" id="hero-display-name">IMPERIUN</div>
+          <div class="hero-display-title" id="hero-display-title">The Royal Sovereign</div>
+          <p class="hero-lore-bio" id="hero-lore-bio">
+            Clad in full golden plate armour with royal crimson cape and lion crest. Stood as the unbroken bulwark during the Siege of Sol-Keth.
+          </p>
+
+          <div class="aaa-section-heading">COMBAT ATTRIBUTES</div>
+          <div class="hero-stat-bars">
+            <div class="stat-row">
+              <span class="srow-label">DURABILITY</span>
+              <div class="srow-bar-wrap"><div class="srow-bar" id="stat-bar-dur" style="width: 95%;"></div></div>
+              <span class="srow-val" id="stat-val-dur">HIGH</span>
+            </div>
+            <div class="stat-row">
+              <span class="srow-label">MOBILITY</span>
+              <div class="srow-bar-wrap"><div class="srow-bar" id="stat-bar-mob" style="width: 65%;"></div></div>
+              <span class="srow-val" id="stat-val-mob">MID</span>
+            </div>
+            <div class="stat-row">
+              <span class="srow-label">DESTRUCTION</span>
+              <div class="srow-bar-wrap"><div class="srow-bar" id="stat-bar-dmg" style="width: 88%;"></div></div>
+              <span class="srow-val" id="stat-val-dmg">BURST</span>
+            </div>
+          </div>
+
+          <div class="aaa-section-heading">INHERENT PASSIVE</div>
+          <div class="hero-passive-card">
+            <div class="hpc-header">
+              <span class="hpc-name" id="hpc-name">Bulwark of the Crown</span>
+              <span class="hpc-tag">PASSIVE TRAIT</span>
+            </div>
+            <p class="hpc-desc" id="hpc-desc">
+              +30% Maximum Health pool and +50% knockback resistance against charging fiends.
+            </p>
+          </div>
+        </div>
+
+        <!-- Center Stage: 3D Viewport with pedestal glow effect -->
+        <div id="aaa-center-viewport">
+          <div class="pedestal-glow"></div>
+        </div>
+
+        <!-- Right Wing: Primary Weapon & 3 Hero Talents -->
+        <div class="aaa-panel" id="aaa-right-panel">
+          <div class="aaa-section-heading">PRIMARY ARSENAL</div>
+          <div class="weapon-feature-card">
+            <div class="wfc-icon" id="wfc-icon"></div>
+            <div class="wfc-meta">
+              <div class="wfc-name" id="wfc-name">Sword Sweep</div>
+              <div class="wfc-type" id="wfc-type">Melee Arc Cleave</div>
+            </div>
+            <div class="wfc-stats">
+              <span>DMG: <b id="wfc-dmg">24</b></span>
+              <span>ARC: <b id="wfc-arc">240°</b></span>
+            </div>
+          </div>
+
+          <div class="aaa-section-heading">SPECIAL TALENTS (Q · E · R)</div>
+          <div class="abilities-list">
+            <div class="ability-card">
+              <div class="ab-key-col">
+                <span class="ab-key-pill">Q</span>
+                <span class="ab-icon" id="ab-icon-q"></span>
+              </div>
+              <div class="ab-meta">
+                <div class="ab-header">
+                  <span class="ab-name" id="ab-name-q">Aegis Rush</span>
+                  <span class="ab-cd" id="ab-cd-q">6s CD</span>
+                </div>
+                <div class="ab-desc" id="ab-desc-q">Shield-bash rush that repels and stuns all frontline beasts in path.</div>
+              </div>
+            </div>
+
+            <div class="ability-card">
+              <div class="ab-key-col">
+                <span class="ab-key-pill">E</span>
+                <span class="ab-icon" id="ab-icon-e"></span>
+              </div>
+              <div class="ab-meta">
+                <div class="ab-header">
+                  <span class="ab-name" id="ab-name-e">Solar Tempest</span>
+                  <span class="ab-cd" id="ab-cd-e">10s CD</span>
+                </div>
+                <div class="ab-desc" id="ab-desc-e">360° spinning golden blade cyclone shredding mobs with high tick rate.</div>
+              </div>
+            </div>
+
+            <div class="ability-card ultimate">
+              <div class="ab-key-col">
+                <span class="ab-key-pill ult">R</span>
+                <span class="ab-icon" id="ab-icon-r"></span>
+              </div>
+              <div class="ab-meta">
+                <div class="ab-header">
+                  <span class="ab-name ult" id="ab-name-r">Wrath of Heavens</span>
+                  <span class="ab-cd" id="ab-cd-r">18s CD</span>
+                </div>
+                <div class="ab-desc" id="ab-desc-r">Calls down a celestial orbital beam vaporizing everything in a 10m blast zone.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- 3. BOTTOM ROSTER CAROUSEL & DEPLOY BAR -->
+      <footer id="aaa-footer">
+        <div id="aaa-roster-dock">
+          <button class="roster-card active" data-cls="knight">
+            <span class="rc-icon" id="rc-icon-knight"></span>
+            <div class="rc-info">
+              <span class="rc-name">IMPERIUN</span>
+              <span class="rc-role">Royal Vanguard</span>
+            </div>
+            <span class="rc-indicator">ACTIVE</span>
+          </button>
+
+          <button class="roster-card" data-cls="mage">
+            <span class="rc-icon" id="rc-icon-mage"></span>
+            <div class="rc-info">
+              <span class="rc-name">ZILI</span>
+              <span class="rc-role">Astral Sorceress</span>
+            </div>
+            <span class="rc-indicator">ACTIVE</span>
+          </button>
+
+          <button class="roster-card" data-cls="archer">
+            <span class="rc-icon" id="rc-icon-archer"></span>
+            <div class="rc-info">
+              <span class="rc-name">AREN</span>
+              <span class="rc-role">Ghost Ranger</span>
+            </div>
+            <span class="rc-indicator">ACTIVE</span>
+          </button>
+        </div>
+
+        <div id="aaa-deploy-wrap">
+          <button class="aaa-deploy-btn" id="startbtn">
+            <span class="deploy-label">ENTER THE CRUCIBLE</span>
+            <span class="deploy-key-hint">PRESS [ SPACE ] OR CLICK TO EMBARK</span>
+          </button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- How to Play / Guide Modal -->
+  <div class="overlay" id="guidemodal">
+    <div id="guide-box">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h1 style="font-size:16px;color:#ffd24a">EXPEDITION CODEX</h1>
+        <button id="guide-close-btn" class="sub-btn">✕ CLOSE</button>
+      </div>
+      <div class="guide-grid">
+        <div class="guide-card">
+          <div class="gcard-title">MOVEMENT & DASH</div>
+          <p>Use <b>WASD</b> or Arrow keys to move and bank into turns. Press <b>SPACE</b> to execute a directional Phantom Dash granting invulnerability frames (i-frames).</p>
+        </div>
+        <div class="guide-card">
+          <div class="gcard-title">HERO SPECIALS</div>
+          <p>Every sovereign commands 3 unique elemental special abilities bound to <b>[Q]</b>, <b>[E]</b>, and <b>[R]</b> that recharge over time. Unleash them to clear mobs.</p>
+        </div>
+        <div class="guide-card">
+          <div class="gcard-title">COMBOS & XP MULTIPLIER</div>
+          <p>Slaying foes in quick succession builds your <b>Combo Streak</b>, scaling XP yields up to <b>+100%</b> bonus. Collect emerald gems to level up.</p>
+        </div>
+        <div class="guide-card">
+          <div class="gcard-title">PERKS & REALM TITANS</div>
+          <p>Level up to draft 1 of 3 perks with Common, Rare, Epic, and Legendary rarities. Clear 10 waves per realm to face the Realm Monarch.</p>
+        </div>
+      </div>
+      <button class="btn" id="guide-ok-btn" style="width:100%;margin-top:8px">UNDERSTOOD</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="classselect">
+    <h1 style="font-size:22px">CHOOSE YOUR CLASS</h1>
+    <div id="classcards" style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center"></div>
+  </div>
+
+  <div class="overlay" id="gameover">
+    <h1 id="gotitle">YOU DIED</h1>
+    <p id="gostats"></p>
+    <button class="btn" id="restartbtn">RESPAWN</button>
+  </div>
+
+  <div class="overlay" id="pause">
+    <h1>PAUSED</h1>
+    <button class="btn" id="resumebtn">RESUME</button>
+  </div>
+
+  <!-- Grand Victory Screen (Conquered All 3 Realms / Titans) -->
+  <div class="overlay" id="victorymodal">
+    <div id="victory-box">
+      <div class="vic-crest">✦ 👑 ✦</div>
+      <h1 id="victitle">SOVEREIGN ASCENDED</h1>
+      <h2 id="vicsub">ALL THREE DUNGEONS CONQUERED & TITANS SLAIN</h2>
+      <div class="vic-stats-grid">
+        <div class="vstat-card">
+          <span class="vstat-num" id="vstat-waves">30 / 30</span>
+          <span class="vstat-lbl">WAVES CONQUERED</span>
+        </div>
+        <div class="vstat-card">
+          <span class="vstat-num" id="vstat-kills">0</span>
+          <span class="vstat-lbl">FOES SLAIN</span>
+        </div>
+        <div class="vstat-card">
+          <span class="vstat-num" id="vstat-time">0:00</span>
+          <span class="vstat-lbl">SURVIVAL TIME</span>
+        </div>
+        <div class="vstat-card">
+          <span class="vstat-num" id="vstat-titans">3 / 3</span>
+          <span class="vstat-lbl">REALM MONARCHS</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;width:100%;margin-top:14px">
+        <button class="btn" id="vic-endless-btn" style="flex:1">ENTER ENDLESS CRUCIBLE</button>
+        <button class="sub-btn" id="vic-menu-btn" style="flex:1">RETURN TO HALL</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loader">LOADING…</div>
+  <div id="vignette"></div>
+
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  } }
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

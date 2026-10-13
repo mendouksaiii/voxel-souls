@@ -1,0 +1,9 @@
+{
+  "name": "voxel-souls",
+  "version": "1.0.0",
+  "description": "Voxel Souls: Chronicles of the Abyss - AAA Roguelite Action Game",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve ."
+  }
+}
