@@ -3760,11 +3760,19 @@ function togglePause() {
     if (pName) pName.textContent = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
     const pMeta = $('pause-slayer-meta');
     if (pMeta) pMeta.textContent = `WAVE ${G.wave} · ${(G.selectedClass || G.class || 'knight').toUpperCase()} · ${G.kills} FOES SLAIN`;
+    const bgmIcon = $('pause-bgm-icon');
+    if (bgmIcon) bgmIcon.innerHTML = getIcon('sound', 16);
+    const bgmTitle = $('pause-bgm-title');
+    if (bgmTitle) {
+      if (G.mapIndex === 0) bgmTitle.textContent = 'REALM I: FORGOTTEN SANCTUM';
+      else if (G.mapIndex === 1) bgmTitle.textContent = 'REALM II: THE INFERNO';
+      else bgmTitle.textContent = 'REALM III: ABYSSAL VOID';
+    }
   }
   else if (G.mode === 'paused') {
     G.mode = 'playing';
     dom.pause.classList.remove('show');
-    if (G.mapIndex === 0) Audio.resumeDungeonMusic();
+    Audio.resumeDungeonMusic();
   }
 }
 function bindUI() {
