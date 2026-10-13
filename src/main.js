@@ -11,6 +11,10 @@ import {
 } from './config.js';
 import { ICONS, getIcon } from './icons.js';
 import * as Audio from './audio.js';
+import {
+  initLeaderboard, openLeaderboardModal, closeLeaderboardModal,
+  calculateScore, submitScore, getSavedName, getPlayerStats,
+} from './leaderboard.js';
 
 // ---------- DOM ----------
 const $ = (id) => document.getElementById(id);
@@ -128,6 +132,7 @@ function init() {
   addEventListener('resize', onResize);
   bindInput();
   bindUI();
+  initLeaderboard();
 
   dom.loader.style.display = 'none';
   dom.menu.classList.add('show');
@@ -783,13 +788,53 @@ function enterRealmPortal() {
 function showVictoryScreen() {
   G.mode = 'over';
   Audio.playVictory();
-
   removeRealmPortal();
+
+  const finalScore = calculateScore(30, G.kills, 3, G.time);
+
   if (dom.victorymodal) {
     if (dom.vstatWaves) dom.vstatWaves.textContent = '30 / 30';
     if (dom.vstatKills) dom.vstatKills.textContent = G.kills;
     if (dom.vstatTime) dom.vstatTime.textContent = fmt(G.time);
     if (dom.vstatTitans) dom.vstatTitans.textContent = '3 / 3';
+
+    const vicScoreDisplay = $('vic-score-display');
+    if (vicScoreDisplay) vicScoreDisplay.textContent = `${finalScore.toLocaleString()} PTS`;
+
+    const vicInput = $('vic-player-name');
+    if (vicInput) vicInput.value = getSavedName(G.selectedClass);
+
+    const vicForm = $('vic-submit-form');
+    const vicSuccess = $('vic-submit-success');
+    const vicBtn = $('vic-submit-btn');
+
+    if (vicForm) vicForm.style.display = 'flex';
+    if (vicSuccess) vicSuccess.classList.remove('show');
+    if (vicBtn) {
+      vicBtn.disabled = false;
+      vicBtn.textContent = 'IMMORTALIZE';
+      vicBtn.onclick = async () => {
+        const name = (vicInput?.value || '').trim() || getSavedName(G.selectedClass);
+        vicBtn.disabled = true;
+        vicBtn.textContent = 'IMMORTALIZING...';
+        const res = await submitScore({
+          name,
+          cls: G.selectedClass || 'knight',
+          wave: 30,
+          kills: G.kills,
+          titans: 3,
+          time: Math.floor(G.time),
+          score: finalScore,
+        });
+        if (vicForm) vicForm.style.display = 'none';
+        if (vicSuccess) {
+          vicSuccess.classList.add('show');
+          const msg = $('vic-success-msg');
+          if (msg) msg.textContent = `IMMORTALIZED! RANK #${res.rank || 1} IN HALL OF CHAMPIONS`;
+        }
+      };
+    }
+
     dom.victorymodal.classList.add('show');
   }
 }
@@ -3587,23 +3632,68 @@ function startRun(cls) {
   dom.pause.classList.remove('show'); dom.classselect.classList.remove('show');
   if (dom.victorymodal) dom.victorymodal.classList.remove('show');
   const gm = $('guidemodal'); if (gm) gm.classList.remove('show');
+  const hoc = $('hall-of-champions-modal'); if (hoc) hoc.classList.remove('show');
   startWave(1);
 }
 
 function gameOver() {
   G.mode = 'over';
   removeRealmPortal();
-  const best = Math.max(G.wave, +(localStorage.getItem('vs_best_wave') || 1));
-  localStorage.setItem('vs_best_wave', best);
-  const totalKills = (+(localStorage.getItem('vs_total_kills') || 0)) + G.kills;
-  localStorage.setItem('vs_total_kills', totalKills);
+
+  let titans = 0;
+  if (G.wave > 30) titans = 3;
+  else if (G.wave > 20) titans = 2;
+  else if (G.wave > 10) titans = 1;
+
+  const finalScore = calculateScore(G.wave, G.kills, titans, G.time);
+  const stats = getPlayerStats();
+  const best = Math.max(G.wave, stats.bestWave);
   const homeRec = $('home-record');
   if (homeRec) homeRec.textContent = 'WAVE ' + best;
 
-  dom.gotitle.textContent = 'FALLEN SOVEREIGN';
+  dom.gotitle.textContent = 'SOVEREIGN FALLEN';
   dom.gostats.innerHTML = `Reached <b style="color:#ffd24a">Wave ${G.wave}</b> · ${MAPS[G.mapIndex].name}<br/>` +
-    `${G.kills} foes vanquished · Level ${G.level} · ${fmt(G.time)} survived<br/>` +
-    `<span style="color:#38bdf8;font-size:8px;margin-top:8px;display:inline-block">ALL-TIME RECORD: WAVE ${best}</span>`;
+    `${G.kills} foes vanquished · ${titans} monarchs slain · ${fmt(G.time)} survived<br/>` +
+    `<span style="color:#38bdf8;font-size:9px;margin-top:6px;display:inline-block">EXPEDITION SCORE: <b>${finalScore.toLocaleString()} PTS</b></span>`;
+
+  // Score Submission setup
+  const goScoreDisplay = $('go-score-display');
+  if (goScoreDisplay) goScoreDisplay.textContent = `${finalScore.toLocaleString()} PTS`;
+
+  const goInput = $('go-player-name');
+  if (goInput) goInput.value = getSavedName(G.selectedClass);
+
+  const goForm = $('go-submit-form');
+  const goSuccess = $('go-submit-success');
+  const goBtn = $('go-submit-btn');
+
+  if (goForm) goForm.style.display = 'flex';
+  if (goSuccess) goSuccess.classList.remove('show');
+  if (goBtn) {
+    goBtn.disabled = false;
+    goBtn.textContent = 'SUBMIT GLORY';
+    goBtn.onclick = async () => {
+      const name = (goInput?.value || '').trim() || getSavedName(G.selectedClass);
+      goBtn.disabled = true;
+      goBtn.textContent = 'SEALING...';
+      const res = await submitScore({
+        name,
+        cls: G.selectedClass || 'knight',
+        wave: G.wave,
+        kills: G.kills,
+        titans,
+        time: Math.floor(G.time),
+        score: finalScore,
+      });
+      if (goForm) goForm.style.display = 'none';
+      if (goSuccess) {
+        goSuccess.classList.add('show');
+        const msg = $('go-success-msg');
+        if (msg) msg.textContent = `GLORY ARCHIVED! RANK #${res.rank || 1} IN HALL OF CHAMPIONS`;
+      }
+    };
+  }
+
   dom.gameover.classList.add('show');
 }
 function togglePause() {
@@ -3614,6 +3704,18 @@ function bindUI() {
   $('startbtn').onclick = () => { Audio.initAudio(); startRun(G.selectedClass || 'knight'); };
   $('restartbtn').onclick = () => { Audio.initAudio(); startRun(G.selectedClass || 'knight'); };
   $('resumebtn').onclick = togglePause;
+
+  // Hall of Champions modal triggers
+  const lbOpenBtn = $('leaderboard-open-btn');
+  if (lbOpenBtn) lbOpenBtn.onclick = () => openLeaderboardModal('all');
+  const goLbBtn = $('go-leaderboard-btn');
+  if (goLbBtn) goLbBtn.onclick = () => openLeaderboardModal('all');
+  const vicLbBtn = $('vic-leaderboard-btn');
+  if (vicLbBtn) vicLbBtn.onclick = () => openLeaderboardModal('all');
+  const pauseLbBtn = $('pause-leaderboard-btn');
+  if (pauseLbBtn) pauseLbBtn.onclick = () => openLeaderboardModal('all');
+  const hocOkBtn = $('hoc-ok-btn');
+  if (hocOkBtn) hocOkBtn.onclick = closeLeaderboardModal;
 
   // Victory screen buttons
   if (dom.vicEndlessBtn) {
@@ -3666,9 +3768,25 @@ function initHomeUI() {
   const iconArcher = $('rc-icon-archer');
   if (iconArcher) iconArcher.innerHTML = getIcon('bow', 22);
 
-  const best = localStorage.getItem('vs_best_wave') || 1;
+  // Leaderboard & overlay vector icons hydration
+  const lbTrophy = $('lb-trophy-icon');
+  if (lbTrophy) lbTrophy.innerHTML = getIcon('trophy', 15);
+  const hocCrest = $('hoc-crest-icon');
+  if (hocCrest) hocCrest.innerHTML = getIcon('trophy', 22);
+  const hocRefresh = $('hoc-refresh-icon');
+  if (hocRefresh) hocRefresh.innerHTML = getIcon('refresh', 13);
+  const goSkull = $('go-skull-icon');
+  if (goSkull) goSkull.innerHTML = getIcon('skull', 22);
+  const vicCrest = $('vic-crest-icon');
+  if (vicCrest) vicCrest.innerHTML = getIcon('crown', 28);
+  const goSuccessIcon = $('go-success-icon');
+  if (goSuccessIcon) goSuccessIcon.innerHTML = getIcon('check', 16);
+  const vicSuccessIcon = $('vic-success-icon');
+  if (vicSuccessIcon) vicSuccessIcon.innerHTML = getIcon('check', 16);
+
+  const stats = getPlayerStats();
   const homeRec = $('home-record');
-  if (homeRec) homeRec.textContent = 'WAVE ' + best;
+  if (homeRec) homeRec.textContent = 'WAVE ' + stats.bestWave;
 
   const rosterCards = document.querySelectorAll('.roster-card');
   rosterCards.forEach((card) => {

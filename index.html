@@ -1139,6 +1139,408 @@
     color: #94a3b8;
     letter-spacing: 1px;
   }
+  /* ========================================================
+     HALL OF CHAMPIONS — EXPEDITION LEADERBOARD (AAA UI)
+     ======================================================== */
+  #hall-of-champions-modal {
+    font-family: var(--font-ui);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: rgba(6, 8, 12, 0.94);
+    z-index: 95;
+    padding: 16px;
+  }
+  #hoc-box {
+    max-width: 860px;
+    width: 95%;
+    max-height: 90vh;
+    background: rgba(15, 23, 42, 0.96);
+    border: 2px solid #ffd24a;
+    border-radius: 14px;
+    box-shadow: 0 0 50px rgba(255, 210, 74, 0.3), 0 25px 60px rgba(0, 0, 0, 0.9);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+    box-sizing: border-box;
+  }
+  .hoc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 210, 74, 0.2);
+    padding-bottom: 12px;
+  }
+  .hoc-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .hoc-crest-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: rgba(255, 210, 74, 0.12);
+    border: 1px solid #ffd24a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+    flex-shrink: 0;
+  }
+  .hoc-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #ffd24a;
+    margin: 0;
+    line-height: 1.2;
+  }
+  .hoc-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    letter-spacing: 1px;
+    margin: 0;
+  }
+  .hoc-top-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .hoc-stat-card {
+    background: rgba(11, 15, 23, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hoc-stat-val {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 800;
+    color: #ffd24a;
+  }
+  .hoc-stat-lbl {
+    font-size: 9px;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+  }
+  .hoc-controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .hoc-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .hoc-tab-btn {
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 6px 12px;
+    transition: all .15s ease;
+  }
+  .hoc-tab-btn:hover {
+    color: #fff;
+    border-color: rgba(255, 210, 74, 0.4);
+    background: rgba(255, 210, 74, 0.1);
+  }
+  .hoc-tab-btn.active {
+    color: #0b0d12;
+    background: #ffd24a;
+    border-color: #ffd24a;
+    font-weight: 800;
+  }
+  .hoc-scores-container {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 220px;
+    max-height: 380px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(11, 15, 23, 0.45);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .hoc-row {
+    display: grid;
+    grid-template-columns: 75px 1fr 115px 135px 110px;
+    align-items: center;
+    gap: 10px;
+    background: rgba(11, 15, 23, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 8px 12px;
+    transition: all .15s ease;
+  }
+  .hoc-row:hover {
+    border-color: rgba(255, 210, 74, 0.35);
+    background: rgba(26, 32, 44, 0.85);
+  }
+  .hoc-row.tier-gold {
+    border-color: rgba(255, 210, 74, 0.65);
+    background: linear-gradient(90deg, rgba(255, 210, 74, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+  }
+  .hoc-row.tier-silver {
+    border-color: rgba(226, 232, 240, 0.45);
+    background: linear-gradient(90deg, rgba(226, 232, 240, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%);
+  }
+  .hoc-row.tier-bronze {
+    border-color: rgba(217, 119, 6, 0.45);
+    background: linear-gradient(90deg, rgba(217, 119, 6, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%);
+  }
+  .hoc-row.is-user-run {
+    border-color: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  }
+  .hoc-col.rank {
+    display: flex;
+    align-items: center;
+  }
+  .hoc-rank-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .hoc-rank-badge.gold {
+    background: rgba(255, 210, 74, 0.2);
+    border: 1px solid #ffd24a;
+    color: #ffd24a;
+  }
+  .hoc-rank-badge.silver {
+    background: rgba(226, 232, 240, 0.15);
+    border: 1px solid #e2e8f0;
+    color: #e2e8f0;
+  }
+  .hoc-rank-badge.bronze {
+    background: rgba(217, 119, 6, 0.2);
+    border: 1px solid #f59e0b;
+    color: #f59e0b;
+  }
+  .hoc-rank-num {
+    font-size: 12px;
+    font-weight: 800;
+    color: #94a3b8;
+    font-family: var(--font-display);
+    padding-left: 6px;
+  }
+  .hoc-player-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hoc-you-badge {
+    font-size: 8px;
+    font-weight: 800;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.2);
+    border: 1px solid #38bdf8;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .hoc-player-sub {
+    font-size: 10px;
+    color: #94a3b8;
+  }
+  .hoc-cls-pill {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .hoc-cls-pill.cls-knight {
+    background: rgba(245, 158, 11, 0.15);
+    color: #ffd24a;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+  .hoc-cls-pill.cls-mage {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+  }
+  .hoc-cls-pill.cls-archer {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  .hoc-col.stats {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #cbd5e1;
+  }
+  .hoc-stat-badge {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    padding: 2px 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .hoc-stat-badge.time {
+    color: #94a3b8;
+  }
+  .hoc-col.score {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .hoc-score-val {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffd24a;
+  }
+  .hoc-score-lbl {
+    font-size: 8px;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+  }
+  .hoc-loading, .hoc-empty {
+    text-align: center;
+    padding: 30px 10px;
+    color: #94a3b8;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .hoc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 10px;
+  }
+
+  /* Score Submission Card (Game Over & Victory) */
+  .expedition-submit-card {
+    width: 100%;
+    background: rgba(11, 15, 23, 0.8);
+    border: 1px solid rgba(255, 210, 74, 0.35);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+    box-sizing: border-box;
+  }
+  .esc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .esc-title {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #ffd24a;
+  }
+  .esc-score {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 800;
+    color: #38bdf8;
+  }
+  .esc-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .esc-input {
+    flex: 1;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #fff;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    outline: none;
+    transition: border-color .15s ease;
+  }
+  .esc-input:focus {
+    border-color: #ffd24a;
+    box-shadow: 0 0 10px rgba(255, 210, 74, 0.25);
+  }
+  .esc-submit-btn {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: 1px solid #ffd24a;
+    color: #0b0d12;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s ease;
+    white-space: nowrap;
+  }
+  .esc-submit-btn:hover {
+    background: #ffd24a;
+    box-shadow: 0 0 14px rgba(255, 210, 74, 0.4);
+  }
+  .esc-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .esc-success {
+    display: none;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid #22c55e;
+    color: #4ade80;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    align-items: center;
+    gap: 8px;
+  }
+  .esc-success.show {
+    display: flex;
+  }
+
+  /* Responsive Leaderboard Modal */
+  @media (max-width: 768px) {
+    #hoc-box { padding: 14px; max-height: 94vh; }
+    .hoc-top-stats { grid-template-columns: 1fr 1fr; }
+    .hoc-row { grid-template-columns: 48px 1fr 85px; gap: 8px; padding: 8px 10px; }
+    .hoc-col.cls, .hoc-col.stats { display: none; }
+    .esc-form { flex-direction: column; }
+    .esc-submit-btn { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -1295,6 +1697,9 @@
             <span class="rec-label">RECORD:</span>
             <span class="rec-val" id="home-record">WAVE 1</span>
           </div>
+          <button id="leaderboard-open-btn" class="aaa-icon-btn">
+            <span id="lb-trophy-icon"></span> HALL OF CHAMPIONS
+          </button>
           <button id="guide-open-btn" class="aaa-icon-btn">
             EXPEDITION CODEX
           </button>
@@ -1480,26 +1885,109 @@
     </div>
   </div>
 
+  <!-- Hall of Champions Leaderboard Modal -->
+  <div class="overlay" id="hall-of-champions-modal">
+    <div id="hoc-box">
+      <div class="hoc-header">
+        <div class="hoc-title-group">
+          <div class="hoc-crest-icon" id="hoc-crest-icon"></div>
+          <div>
+            <h1 class="hoc-title">HALL OF CHAMPIONS</h1>
+            <p class="hoc-sub">EXPEDITION HIGH SCORES · REALM PURIFIERS & ASCENDED SOULS</p>
+          </div>
+        </div>
+        <button id="hoc-close-btn" class="sub-btn">✕ CLOSE</button>
+      </div>
+
+      <!-- Top Player Metric Cards -->
+      <div class="hoc-top-stats">
+        <div class="hoc-stat-card">
+          <span class="hoc-stat-val" id="hoc-stat-best-wave">WAVE 1</span>
+          <span class="hoc-stat-lbl">PERSONAL BEST WAVE</span>
+        </div>
+        <div class="hoc-stat-card">
+          <span class="hoc-stat-val" id="hoc-stat-high-score">0</span>
+          <span class="hoc-stat-lbl">ALL-TIME HIGH SCORE</span>
+        </div>
+        <div class="hoc-stat-card">
+          <span class="hoc-stat-val" id="hoc-stat-titans">0 TITANS</span>
+          <span class="hoc-stat-lbl">MONARCHS SLAIN</span>
+        </div>
+        <div class="hoc-stat-card">
+          <span class="hoc-stat-val" id="hoc-stat-kills">0</span>
+          <span class="hoc-stat-lbl">TOTAL FOES PURGED</span>
+        </div>
+      </div>
+
+      <!-- Class Filter Tabs & Actions -->
+      <div class="hoc-controls-bar">
+        <div class="hoc-tabs">
+          <button class="hoc-tab-btn active" data-tab="all">ALL GUILDS</button>
+          <button class="hoc-tab-btn" data-tab="knight">VANGUARD (KNIGHT)</button>
+          <button class="hoc-tab-btn" data-tab="mage">ASTRAL (MAGE)</button>
+          <button class="hoc-tab-btn" data-tab="archer">VERDANT (ARCHER)</button>
+        </div>
+        <button id="hoc-refresh-btn" class="sub-btn" style="display:inline-flex;align-items:center;gap:4px">
+          <span id="hoc-refresh-icon"></span> REFRESH RANKS
+        </button>
+      </div>
+
+      <!-- Scrollable High Score Records -->
+      <div class="hoc-scores-container" id="hoc-scores-body"></div>
+
+      <div class="hoc-footer">
+        <span style="font-size:10px;color:#94a3b8">SYNCHRONIZED WITH VERCEL ABYSSAL CODEX · RUNS ARCHIVED IN PERPETUITY</span>
+        <button class="btn" id="hoc-ok-btn" style="padding:8px 18px">DISMISS</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="classselect">
     <h1 style="font-size:22px">CHOOSE YOUR CLASS</h1>
     <div id="classcards" style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center"></div>
   </div>
 
   <div class="overlay" id="gameover">
-    <h1 id="gotitle">YOU DIED</h1>
-    <p id="gostats"></p>
-    <button class="btn" id="restartbtn">RESPAWN</button>
+    <div id="gameover-box" style="max-width:520px;width:92%;background:rgba(15,23,42,0.96);border:2px solid #ef4444;border-radius:14px;box-shadow:0 0 50px rgba(239,68,68,0.35),0 20px 50px rgba(0,0,0,0.8);padding:26px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(239,68,68,0.15);border:1px solid #ef4444;display:flex;align-items:center;justify-content:center;color:#ef4444;" id="go-skull-icon"></div>
+      <h1 id="gotitle" style="font-family:var(--font-display);font-size:26px;color:#ef4444;margin:0;letter-spacing:2px">SOVEREIGN FALLEN</h1>
+      <p id="gostats" style="margin:0;font-size:11px;color:#cbd5e1;line-height:1.8"></p>
+
+      <!-- Expedition Score Record Card -->
+      <div class="expedition-submit-card" id="go-submit-card">
+        <div class="esc-header">
+          <span class="esc-title">SEAL THY EXPEDITION IN THE CODEX</span>
+          <span class="esc-score" id="go-score-display">0 PTS</span>
+        </div>
+        <div class="esc-form" id="go-submit-form">
+          <input type="text" class="esc-input" id="go-player-name" placeholder="Enter Champion Name..." maxlength="24" />
+          <button class="esc-submit-btn" id="go-submit-btn">SUBMIT GLORY</button>
+        </div>
+        <div class="esc-success" id="go-submit-success">
+          <span id="go-success-icon"></span>
+          <span id="go-success-msg">RECORDED IN HALL OF CHAMPIONS!</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;width:100%;margin-top:6px">
+        <button class="btn" id="restartbtn" style="flex:1">RESPAWN</button>
+        <button class="sub-btn" id="go-leaderboard-btn" style="flex:1;padding:12px">HALL OF CHAMPIONS</button>
+      </div>
+    </div>
   </div>
 
   <div class="overlay" id="pause">
-    <h1>PAUSED</h1>
-    <button class="btn" id="resumebtn">RESUME</button>
+    <div style="max-width:360px;width:90%;background:rgba(15,23,42,0.96);border:2px solid #ffd24a;border-radius:12px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 0 40px rgba(0,0,0,0.8);">
+      <h1 style="font-family:var(--font-display);font-size:24px;color:#ffd24a;margin:0;letter-spacing:2px">EXPEDITION PAUSED</h1>
+      <button class="btn" id="resumebtn" style="width:100%">RESUME COMBAT</button>
+      <button class="sub-btn" id="pause-leaderboard-btn" style="width:100%;padding:10px">HALL OF CHAMPIONS</button>
+    </div>
   </div>
 
   <!-- Grand Victory Screen (Conquered All 3 Realms / Titans) -->
   <div class="overlay" id="victorymodal">
     <div id="victory-box">
-      <div class="vic-crest">✦ 👑 ✦</div>
+      <div class="vic-crest" id="vic-crest-icon"></div>
       <h1 id="victitle">SOVEREIGN ASCENDED</h1>
       <h2 id="vicsub">ALL THREE DUNGEONS CONQUERED & TITANS SLAIN</h2>
       <div class="vic-stats-grid">
@@ -1520,9 +2008,27 @@
           <span class="vstat-lbl">REALM MONARCHS</span>
         </div>
       </div>
-      <div style="display:flex;gap:12px;width:100%;margin-top:14px">
-        <button class="btn" id="vic-endless-btn" style="flex:1">ENTER ENDLESS CRUCIBLE</button>
-        <button class="sub-btn" id="vic-menu-btn" style="flex:1">RETURN TO HALL</button>
+
+      <!-- Victory Codex Submission Card -->
+      <div class="expedition-submit-card" id="vic-submit-card" style="width:100%">
+        <div class="esc-header">
+          <span class="esc-title">IMMORTALIZE THY TRIUMPH IN CODEX</span>
+          <span class="esc-score" id="vic-score-display">0 PTS</span>
+        </div>
+        <div class="esc-form" id="vic-submit-form">
+          <input type="text" class="esc-input" id="vic-player-name" placeholder="Enter Champion Name..." maxlength="24" />
+          <button class="esc-submit-btn" id="vic-submit-btn">IMMORTALIZE</button>
+        </div>
+        <div class="esc-success" id="vic-submit-success">
+          <span id="vic-success-icon"></span>
+          <span id="vic-success-msg">GLORY SEALED IN HALL OF CHAMPIONS!</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;width:100%;margin-top:14px;flex-wrap:wrap">
+        <button class="btn" id="vic-endless-btn" style="flex:1;min-width:160px">ENTER ENDLESS CRUCIBLE</button>
+        <button class="sub-btn" id="vic-leaderboard-btn" style="flex:1;min-width:140px;padding:12px">HALL OF CHAMPIONS</button>
+        <button class="sub-btn" id="vic-menu-btn" style="flex:1;min-width:120px;padding:12px">RETURN TO HALL</button>
       </div>
     </div>
   </div>
