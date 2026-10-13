@@ -1,18 +1,25 @@
-// src/leaderboard.js — Client-Side Hall of Champions & Vercel API Client
+// src/leaderboard.js — Client-Side Hall of Champions & Real-Player Codex
 import { getIcon } from './icons.js';
 
-export const SEEDED_CHAMPIONS = [
-  { id: 'seed-1', name: 'Aurelius Dawnshield', cls: 'knight', wave: 42, score: 68420, kills: 184, titans: 3, time: 845, date: 'OCT 12' },
-  { id: 'seed-2', name: 'Zili Voidwalker', cls: 'mage', wave: 38, score: 61200, kills: 192, titans: 3, time: 780, date: 'OCT 12' },
-  { id: 'seed-3', name: 'Kael Shadowstride', cls: 'archer', wave: 35, score: 55800, kills: 165, titans: 3, time: 710, date: 'OCT 11' },
-  { id: 'seed-4', name: 'Seraphina Sunfire', cls: 'mage', wave: 31, score: 49100, kills: 144, titans: 3, time: 640, date: 'OCT 11' },
-  { id: 'seed-5', name: 'Lord Malakor', cls: 'knight', wave: 27, score: 41900, kills: 128, titans: 2, time: 580, date: 'OCT 10' },
-  { id: 'seed-6', name: 'Sylas Windrunner', cls: 'archer', wave: 24, score: 36500, kills: 112, titans: 2, time: 520, date: 'OCT 10' },
-  { id: 'seed-7', name: 'Ignis Emberheart', cls: 'mage', wave: 21, score: 32400, kills: 98, titans: 2, time: 460, date: 'OCT 09' },
-  { id: 'seed-8', name: 'Valerius Bulwark', cls: 'knight', wave: 19, score: 28600, kills: 86, titans: 1, time: 410, date: 'OCT 09' },
-  { id: 'seed-9', name: 'Lyra Nightbloom', cls: 'archer', wave: 15, score: 22900, kills: 74, titans: 1, time: 340, date: 'OCT 08' },
-  { id: 'seed-10', name: 'Torin the Initiate', cls: 'knight', wave: 11, score: 17400, kills: 56, titans: 1, time: 260, date: 'OCT 08' },
-];
+const KNOWN_SEED_NAMES = new Set([
+  'aurelius dawnshield', 'zili voidwalker', 'kael shadowstride',
+  'seraphina sunfire', 'lord malakor', 'sylas windrunner',
+  'ignis emberheart', 'valerius bulwark', 'lyra nightbloom', 'torin the initiate'
+]);
+
+export function isSeedEntry(s) {
+  if (!s || typeof s !== 'object') return true;
+  if (s.isSeed === true) return true;
+  if (typeof s.id === 'string' && s.id.startsWith('seed-')) return true;
+  const name = String(s.name || '').trim().toLowerCase();
+  if (KNOWN_SEED_NAMES.has(name)) return true;
+  return false;
+}
+
+export function sanitizeRealScores(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => !isSeedEntry(item));
+}
 
 const LOCAL_STORAGE_KEY = 'lbs_leaderboard';
 const STATS_STORAGE_KEY = 'lbs_player_stats';
@@ -45,11 +52,11 @@ export function getPlayerStats() {
 
 export function updatePlayerStats(newEntry) {
   const stats = getPlayerStats();
-  stats.bestWave = Math.max(stats.bestWave, newEntry.wave);
-  stats.highScore = Math.max(stats.highScore, newEntry.score);
+  stats.bestWave = Math.max(stats.bestWave, newEntry.wave || 1);
+  stats.highScore = Math.max(stats.highScore, newEntry.score || 0);
   stats.totalTitans += (newEntry.titans || 0);
   stats.totalKills += (newEntry.kills || 0);
-  stats.expeditions += 1;
+  stats.expeditions = (stats.expeditions || 0) + 1;
   try {
     localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
   } catch (_) {}
@@ -77,15 +84,22 @@ export function getLocalScores() {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed)) {
+        const cleaned = sanitizeRealScores(parsed);
+        if (cleaned.length !== parsed.length) {
+          saveLocalScores(cleaned);
+        }
+        return cleaned;
+      }
     }
   } catch (_) {}
-  return [...SEEDED_CHAMPIONS];
+  return [];
 }
 
 export function saveLocalScores(scores) {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(scores));
+    const cleaned = sanitizeRealScores(scores);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleaned));
   } catch (_) {}
 }
 
@@ -96,23 +110,24 @@ export async function fetchLeaderboardScores(cls = 'all') {
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        cachedScores = json.data;
-        saveLocalScores(json.data);
-        return json.data;
+        const cleaned = sanitizeRealScores(json.data);
+        cachedScores = cleaned;
+        saveLocalScores(cleaned);
+        return cleaned;
       }
     }
   } catch (err) {
     console.warn('API unreachable, using local storage fallback:', err.message);
   }
 
-  // Resilient fallback
+  // Resilient real fallback
   const local = getLocalScores();
   cachedScores = local;
   let filtered = [...local];
   if (cls && cls !== 'all') {
-    filtered = filtered.filter((s) => s.cls === cls);
+    filtered = filtered.filter((s) => s.cls === cls || s.favCls === cls);
   }
-  filtered.sort((a, b) => b.score - a.score || b.wave - a.wave || a.time - b.time);
+  filtered.sort((a, b) => b.score - a.score || b.wave - a.wave || (b.totalKills || 0) - (a.totalKills || 0) || a.time - b.time);
   return filtered;
 }
 
@@ -121,39 +136,121 @@ export async function submitScore(entry) {
   setSavedName(cleanName);
   updatePlayerStats(entry);
 
-  // 1. Identify by player name and save locally immediately
+  const cls = entry.cls || 'knight';
+  const wave = entry.wave || 1;
+  const kills = entry.kills || 0;
+  const titans = entry.titans || 0;
+  const time = entry.time || 1;
+  const score = entry.score || calculateScore(wave, kills, titans, time);
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+
+  const runItem = {
+    wave,
+    kills,
+    titans,
+    time,
+    score,
+    cls,
+    date: dateStr,
+    timestamp: Date.now(),
+  };
+
+  // 1. Identify by player name and aggregate complete player profile in local storage
   const local = getLocalScores();
   const existingIdx = local.findIndex(
     (s) => s.name.trim().toLowerCase() === cleanName.toLowerCase()
   );
 
-  let fullEntry = {
-    ...entry,
-    name: cleanName,
-    id: 'user-' + Date.now(),
-    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase(),
-    isUser: true,
-  };
-  let isNewBest = true;
+  let fullEntry = null;
+  let isNewBest = false;
 
   if (existingIdx !== -1) {
     const existing = local[existingIdx];
-    if (entry.score >= existing.score) {
-      fullEntry = {
-        ...existing,
-        ...fullEntry,
-        id: existing.id || fullEntry.id,
-      };
-      local[existingIdx] = fullEntry;
-    } else {
-      fullEntry = existing;
-      isNewBest = false;
+    const prevBestScore = existing.bestScore ?? existing.score ?? 0;
+    isNewBest = score >= prevBestScore;
+
+    const bestScore = Math.max(prevBestScore, score);
+    const bestWave = Math.max(existing.bestWave ?? existing.wave ?? 1, wave);
+    const bestKills = Math.max(existing.bestKills ?? existing.kills ?? 0, kills);
+    const bestTitans = Math.max(existing.bestTitans ?? existing.titans ?? 0, titans);
+
+    const expeditions = (existing.expeditions || 1) + 1;
+    const totalKills = (existing.totalKills ?? existing.kills ?? 0) + kills;
+    const totalTitans = (existing.totalTitans ?? existing.titans ?? 0) + titans;
+    const totalTime = (existing.totalTime ?? existing.time ?? 0) + time;
+
+    const classesPlayed = { ...(existing.classesPlayed || {}) };
+    classesPlayed[cls] = (classesPlayed[cls] || 0) + 1;
+
+    let favCls = existing.favCls || cls;
+    let maxCount = 0;
+    for (const [c, cnt] of Object.entries(classesPlayed)) {
+      if (cnt > maxCount) {
+        maxCount = cnt;
+        favCls = c;
+      }
     }
+
+    const history = [runItem, ...(existing.history || [])].slice(0, 5);
+
+    fullEntry = {
+      ...existing,
+      name: existing.name || cleanName,
+      cls: isNewBest ? cls : (existing.cls || favCls),
+      favCls,
+      score: bestScore,
+      bestScore,
+      wave: bestWave,
+      bestWave,
+      kills: bestKills,
+      bestKills,
+      titans: bestTitans,
+      bestTitans,
+      time: isNewBest ? time : (existing.time || time),
+      totalKills,
+      totalTitans,
+      totalTime,
+      expeditions,
+      classesPlayed,
+      history,
+      lastActive: dateStr,
+      date: isNewBest ? dateStr : (existing.date || dateStr),
+      isUser: true,
+      id: existing.id || ('player-' + Date.now()),
+    };
+
+    local[existingIdx] = fullEntry;
   } else {
+    isNewBest = true;
+    fullEntry = {
+      id: 'player-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      name: cleanName,
+      cls,
+      favCls: cls,
+      score,
+      bestScore: score,
+      wave,
+      bestWave: wave,
+      kills,
+      bestKills: kills,
+      titans,
+      bestTitans: titans,
+      time,
+      totalKills: kills,
+      totalTitans: titans,
+      totalTime: time,
+      expeditions: 1,
+      classesPlayed: { [cls]: 1 },
+      history: [runItem],
+      lastActive: dateStr,
+      date: dateStr,
+      isUser: true,
+    };
     local.push(fullEntry);
   }
 
-  local.sort((a, b) => b.score - a.score || b.wave - a.wave || a.time - b.time);
+  local.sort((a, b) => b.score - a.score || b.wave - a.wave || (b.totalKills || 0) - (a.totalKills || 0) || a.time - b.time);
   const trimmed = local.slice(0, 100);
   saveLocalScores(trimmed);
   cachedScores = trimmed;
@@ -208,6 +305,18 @@ function updateTabUI(tab) {
   });
 }
 
+// Global toggle for player dossier drawer
+window.__toggleHocDossier = (idx) => {
+  const dossier = document.getElementById(`hoc-dossier-${idx}`);
+  const icon = document.getElementById(`hoc-exp-icon-${idx}`);
+  if (!dossier) return;
+  const isShown = dossier.style.display === 'block';
+  dossier.style.display = isShown ? 'none' : 'block';
+  if (icon) {
+    icon.innerHTML = isShown ? getIcon('chevron_down', 13) : getIcon('chevron_up', 13);
+  }
+};
+
 export async function renderLeaderboardContent(tab = 'all') {
   const listEl = document.getElementById('hoc-scores-body');
   const statsBestWave = document.getElementById('hoc-stat-best-wave');
@@ -216,35 +325,56 @@ export async function renderLeaderboardContent(tab = 'all') {
   const statsKills = document.getElementById('hoc-stat-kills');
 
   const activeName = (getSavedName() || '').trim();
-  const playerStats = getPlayerStats();
 
   if (listEl) {
     listEl.innerHTML = `
       <div class="hoc-loading">
         <div class="rwo-ring" style="width:36px;height:36px;margin:12px auto;"></div>
-        <span>CONSULTING THE ABYSSAL CODEX FOR ${activeName.toUpperCase()}...</span>
+        <span>CONSULTING REAL SLAYER CODEX FOR ${activeName.toUpperCase()}...</span>
       </div>
     `;
   }
 
   const scores = await fetchLeaderboardScores(tab);
 
-  // Update top player summary cards for the actively identified player name
+  // Update top player summary cards with the real data carried by active player's name
   const playerEntry = scores.find((s) => s.name.trim().toLowerCase() === activeName.toLowerCase());
-  const bestWave = playerEntry ? Math.max(playerStats.bestWave, playerEntry.wave) : playerStats.bestWave;
-  const highScore = playerEntry ? Math.max(playerStats.highScore, playerEntry.score) : playerStats.highScore;
-  const titans = playerEntry ? Math.max(playerStats.totalTitans, playerEntry.titans) : playerStats.totalTitans;
-  const kills = playerEntry ? Math.max(playerStats.totalKills, playerEntry.kills) : playerStats.totalKills;
 
-  if (statsBestWave) statsBestWave.textContent = `WAVE ${bestWave}`;
-  if (statsHighScore) statsHighScore.textContent = highScore.toLocaleString();
-  if (statsTitans) statsTitans.textContent = `${titans} TITANS`;
-  if (statsKills) statsKills.textContent = kills.toLocaleString();
+  if (playerEntry) {
+    if (statsBestWave) statsBestWave.textContent = `WAVE ${playerEntry.bestWave || playerEntry.wave}`;
+    if (statsHighScore) statsHighScore.textContent = (playerEntry.bestScore || playerEntry.score).toLocaleString();
+    if (statsTitans) statsTitans.textContent = `${playerEntry.totalTitans ?? playerEntry.titans} TITANS`;
+    if (statsKills) statsKills.textContent = (playerEntry.totalKills || playerEntry.kills).toLocaleString();
+  } else {
+    if (statsBestWave) statsBestWave.textContent = 'UNRANKED';
+    if (statsHighScore) statsHighScore.textContent = '0 PTS';
+    if (statsTitans) statsTitans.textContent = '0 TITANS';
+    if (statsKills) statsKills.textContent = '0 FOES';
+  }
 
   if (!listEl) return;
 
+  // Real Empty State: When no genuine slayers have ascended yet
   if (!scores.length) {
-    listEl.innerHTML = `<div class="hoc-empty">NO EXPEDITIONS RECORDED FOR THIS GUILD YET.</div>`;
+    listEl.innerHTML = `
+      <div class="hoc-empty-state">
+        <div class="hoc-empty-icon">${getIcon('trophy', 38)}</div>
+        <div class="hoc-empty-title">THE ABYSSAL CODEX AWAITS ITS FIRST SLAYER</div>
+        <div class="hoc-empty-desc">
+          Every entry in the Hall of Champions is 100% genuine mortal data. No synthetic champions are seeded.<br>
+          Descend into the forgotten realms, slay the hordes, and claim Rank #1.
+        </div>
+        <button class="btn hoc-empty-start-btn" id="hoc-empty-start-btn">COMMENCE EXPEDITION</button>
+      </div>
+    `;
+    const startBtn = document.getElementById('hoc-empty-start-btn');
+    if (startBtn) {
+      startBtn.onclick = () => {
+        closeLeaderboardModal();
+        const mainStart = document.getElementById('startbtn');
+        if (mainStart) mainStart.click();
+      };
+    }
     return;
   }
 
@@ -254,49 +384,118 @@ export async function renderLeaderboardContent(tab = 'all') {
     let rowTier = '';
 
     if (rank === 1) {
-      rankBadge = `<span class="hoc-rank-badge gold">${getIcon('trophy', 16)} 1ST</span>`;
+      rankBadge = `<span class="hoc-rank-badge gold">${getIcon('trophy', 15)} 1ST</span>`;
       rowTier = 'tier-gold';
     } else if (rank === 2) {
-      rankBadge = `<span class="hoc-rank-badge silver">${getIcon('medal', 16)} 2ND</span>`;
+      rankBadge = `<span class="hoc-rank-badge silver">${getIcon('medal', 15)} 2ND</span>`;
       rowTier = 'tier-silver';
     } else if (rank === 3) {
-      rankBadge = `<span class="hoc-rank-badge bronze">${getIcon('medal', 16)} 3RD</span>`;
+      rankBadge = `<span class="hoc-rank-badge bronze">${getIcon('medal', 15)} 3RD</span>`;
       rowTier = 'tier-bronze';
     }
 
-    const clsIcon = s.cls === 'mage' ? getIcon('magic', 14) : (s.cls === 'archer' ? getIcon('bow', 14) : getIcon('sword', 14));
-    const clsName = s.cls === 'mage' ? 'ASTRAL' : (s.cls === 'archer' ? 'VERDANT' : 'VANGUARD');
+    const clsKey = s.favCls || s.cls || 'knight';
+    const clsIcon = clsKey === 'mage' ? getIcon('magic', 13) : (clsKey === 'archer' ? getIcon('bow', 13) : getIcon('sword', 13));
+    const clsName = clsKey === 'mage' ? 'ASTRAL' : (clsKey === 'archer' ? 'VERDANT' : 'VANGUARD');
 
     let realmName = 'REALM I · SANCTUM';
-    if (s.wave > 30) realmName = 'ENDLESS ASCENT';
-    else if (s.wave >= 21) realmName = 'REALM III · VOID';
-    else if (s.wave >= 11) realmName = 'REALM II · INFERNO';
+    const peakWave = s.bestWave || s.wave || 1;
+    if (peakWave > 30) realmName = 'ENDLESS ASCENT';
+    else if (peakWave >= 21) realmName = 'REALM III · VOID';
+    else if (peakWave >= 11) realmName = 'REALM II · INFERNO';
 
     // Player Identification: Match by player name!
     const isPlayerMatch = s.name.trim().toLowerCase() === activeName.toLowerCase() || s.isUser;
     const isUserClass = isPlayerMatch ? 'is-user-run' : '';
 
+    const runsCount = s.expeditions || 1;
+    const lifetimeKills = (s.totalKills || s.kills || 0).toLocaleString();
+    const lifetimeTitans = s.totalTitans ?? s.titans ?? 0;
+    const peakScore = (s.bestScore || s.score || 0).toLocaleString();
+    const historyList = Array.isArray(s.history) ? s.history : [];
+
     return `
-      <div class="hoc-row ${rowTier} ${isUserClass}">
-        <div class="hoc-col rank">${rankBadge}</div>
-        <div class="hoc-col player">
-          <div class="hoc-player-name">
-            ${s.name}
-            ${isPlayerMatch ? `<span class="hoc-you-badge">YOU</span>` : ''}
+      <div class="hoc-row-wrap">
+        <div class="hoc-row ${rowTier} ${isUserClass}" onclick="window.__toggleHocDossier('${idx}')" title="Click to view ${s.name}'s complete player dossier">
+          <div class="hoc-col rank">${rankBadge}</div>
+          <div class="hoc-col player">
+            <div class="hoc-player-name">
+              ${s.name}
+              ${isPlayerMatch ? `<span class="hoc-you-badge">YOU</span>` : ''}
+            </div>
+            <div class="hoc-player-sub">${realmName} · WAVE ${peakWave} · ${runsCount} ${runsCount === 1 ? 'RUN' : 'RUNS'}</div>
           </div>
-          <div class="hoc-player-sub">${realmName} · WAVE ${s.wave}</div>
+          <div class="hoc-col cls">
+            <span class="hoc-cls-pill cls-${clsKey}">${clsIcon} ${clsName}</span>
+          </div>
+          <div class="hoc-col stats">
+            <span class="hoc-stat-badge" title="Lifetime Monarchs Slain">${getIcon('crown', 12)} ${lifetimeTitans}</span>
+            <span class="hoc-stat-badge" title="Lifetime Foes Vanquished">${getIcon('skull', 12)} ${lifetimeKills}</span>
+            <span class="hoc-stat-badge time" title="Best Expedition Time">${formatTime(s.time || 0)}</span>
+          </div>
+          <div class="hoc-col score">
+            <span class="hoc-score-val">${peakScore}</span>
+            <span class="hoc-score-lbl">PEAK PTS</span>
+          </div>
+          <div class="hoc-col expand-hint">
+            <span class="hoc-exp-icon" id="hoc-exp-icon-${idx}">${getIcon('chevron_down', 13)}</span>
+          </div>
         </div>
-        <div class="hoc-col cls">
-          <span class="hoc-cls-pill cls-${s.cls}">${clsIcon} ${clsName}</span>
-        </div>
-        <div class="hoc-col stats">
-          <span class="hoc-stat-badge" title="Titans Slain">${getIcon('crown', 12)} ${s.titans}</span>
-          <span class="hoc-stat-badge" title="Fiends Slayed">${getIcon('skull', 12)} ${s.kills}</span>
-          <span class="hoc-stat-badge time">${formatTime(s.time)}</span>
-        </div>
-        <div class="hoc-col score">
-          <span class="hoc-score-val">${s.score.toLocaleString()}</span>
-          <span class="hoc-score-lbl">SCORE</span>
+
+        <!-- Expandable Player Career Dossier -->
+        <div class="hoc-player-dossier" id="hoc-dossier-${idx}" style="display:none">
+          <div class="hpd-header">
+            <div class="hpd-title-group">
+              ${getIcon('dossier', 14)}
+              <span class="hpd-title">CHAMPION DOSSIER · ${s.name.toUpperCase()}</span>
+            </div>
+            <span class="hpd-badge">${runsCount} ${runsCount === 1 ? 'EXPEDITION' : 'EXPEDITIONS'} ARCHIVED</span>
+          </div>
+          <div class="hpd-grid">
+            <div class="hpd-cell">
+              <span class="hpd-lbl">PEAK WAVE CONQUERED</span>
+              <span class="hpd-val gold">WAVE ${peakWave}</span>
+            </div>
+            <div class="hpd-cell">
+              <span class="hpd-lbl">PEAK EXPEDITION SCORE</span>
+              <span class="hpd-val gold">${peakScore} PTS</span>
+            </div>
+            <div class="hpd-cell">
+              <span class="hpd-lbl">LIFETIME FOES VANQUISHED</span>
+              <span class="hpd-val">${lifetimeKills}</span>
+            </div>
+            <div class="hpd-cell">
+              <span class="hpd-lbl">MONARCHS SLAIN</span>
+              <span class="hpd-val">${lifetimeTitans} TITANS</span>
+            </div>
+            <div class="hpd-cell">
+              <span class="hpd-lbl">FAVORED DISCIPLINE</span>
+              <span class="hpd-val">${clsName}</span>
+            </div>
+            <div class="hpd-cell">
+              <span class="hpd-lbl">TOTAL TIME SURVIVED</span>
+              <span class="hpd-val">${formatTime(s.totalTime || s.time || 0)}</span>
+            </div>
+          </div>
+
+          ${historyList.length > 0 ? `
+            <div class="hpd-history-box">
+              <div class="hpd-history-hdr">RECENT EXPEDITIONS CARRIED BY THIS SLAYER</div>
+              <div class="hpd-history-list">
+                ${historyList.map((h, hIdx) => `
+                  <div class="hpd-history-row">
+                    <span class="hpd-h-tag">RUN #${historyList.length - hIdx}</span>
+                    <span class="hpd-h-wave">WAVE ${h.wave}</span>
+                    <span class="hpd-h-cls">${(h.cls || 'knight').toUpperCase()}</span>
+                    <span class="hpd-h-stat">${getIcon('skull', 11)} ${h.kills || 0}</span>
+                    <span class="hpd-h-stat">${getIcon('crown', 11)} ${h.titans || 0}</span>
+                    <span class="hpd-h-score">${(h.score || 0).toLocaleString()} PTS</span>
+                    <span class="hpd-h-date">${h.date || ''}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;

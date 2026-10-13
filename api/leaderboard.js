@@ -1,21 +1,29 @@
 // api/leaderboard.js — Vercel Serverless Function for Voxel Souls Leaderboard
+// Pure Real-Player Codex (No synthetic/mock seeds).
 // Supports Vercel KV / Upstash Redis REST if configured, with resilient global in-memory fallback.
 
-const SEEDED_CHAMPIONS = [
-  { id: 'seed-1', name: 'Aurelius Dawnshield', cls: 'knight', wave: 42, score: 68420, kills: 184, titans: 3, time: 845, date: '2026-10-12', isSeed: true },
-  { id: 'seed-2', name: 'Zili Voidwalker', cls: 'mage', wave: 38, score: 61200, kills: 192, titans: 3, time: 780, date: '2026-10-12', isSeed: true },
-  { id: 'seed-3', name: 'Kael Shadowstride', cls: 'archer', wave: 35, score: 55800, kills: 165, titans: 3, time: 710, date: '2026-10-11', isSeed: true },
-  { id: 'seed-4', name: 'Seraphina Sunfire', cls: 'mage', wave: 31, score: 49100, kills: 144, titans: 3, time: 640, date: '2026-10-11', isSeed: true },
-  { id: 'seed-5', name: 'Lord Malakor', cls: 'knight', wave: 27, score: 41900, kills: 128, titans: 2, time: 580, date: '2026-10-10', isSeed: true },
-  { id: 'seed-6', name: 'Sylas Windrunner', cls: 'archer', wave: 24, score: 36500, kills: 112, titans: 2, time: 520, date: '2026-10-10', isSeed: true },
-  { id: 'seed-7', name: 'Ignis Emberheart', cls: 'mage', wave: 21, score: 32400, kills: 98, titans: 2, time: 460, date: '2026-10-09', isSeed: true },
-  { id: 'seed-8', name: 'Valerius Bulwark', cls: 'knight', wave: 19, score: 28600, kills: 86, titans: 1, time: 410, date: '2026-10-09', isSeed: true },
-  { id: 'seed-9', name: 'Lyra Nightbloom', cls: 'archer', wave: 15, score: 22900, kills: 74, titans: 1, time: 340, date: '2026-10-08', isSeed: true },
-  { id: 'seed-10', name: 'Torin the Initiate', cls: 'knight', wave: 11, score: 17400, kills: 56, titans: 1, time: 260, date: '2026-10-08', isSeed: true },
-];
+const KNOWN_SEED_NAMES = new Set([
+  'aurelius dawnshield', 'zili voidwalker', 'kael shadowstride',
+  'seraphina sunfire', 'lord malakor', 'sylas windrunner',
+  'ignis emberheart', 'valerius bulwark', 'lyra nightbloom', 'torin the initiate'
+]);
+
+function isSeedEntry(s) {
+  if (!s || typeof s !== 'object') return true;
+  if (s.isSeed === true) return true;
+  if (typeof s.id === 'string' && s.id.startsWith('seed-')) return true;
+  const name = String(s.name || '').trim().toLowerCase();
+  if (KNOWN_SEED_NAMES.has(name)) return true;
+  return false;
+}
+
+function sanitizeRealScores(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => !isSeedEntry(item));
+}
 
 if (!globalThis.__LBS_LEADERBOARD) {
-  globalThis.__LBS_LEADERBOARD = [...SEEDED_CHAMPIONS];
+  globalThis.__LBS_LEADERBOARD = [];
 }
 
 async function getStoredScores() {
@@ -31,7 +39,14 @@ async function getStoredScores() {
         const json = await res.json();
         if (json.result) {
           const parsed = JSON.parse(json.result);
-          if (Array.isArray(parsed) && parsed.length) return parsed;
+          if (Array.isArray(parsed)) {
+            const cleaned = sanitizeRealScores(parsed);
+            // If KV had old mock seeds, purge them permanently by saving the cleaned real list back
+            if (cleaned.length !== parsed.length) {
+              await saveStoredScores(cleaned);
+            }
+            return cleaned;
+          }
         }
       }
     } catch (e) {
@@ -39,11 +54,12 @@ async function getStoredScores() {
     }
   }
 
+  globalThis.__LBS_LEADERBOARD = sanitizeRealScores(globalThis.__LBS_LEADERBOARD);
   return globalThis.__LBS_LEADERBOARD;
 }
 
 async function saveStoredScores(scores) {
-  globalThis.__LBS_LEADERBOARD = scores;
+  globalThis.__LBS_LEADERBOARD = sanitizeRealScores(scores);
 
   const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -56,7 +72,7 @@ async function saveStoredScores(scores) {
           Authorization: `Bearer ${kvToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(JSON.stringify(scores)),
+        body: JSON.stringify(JSON.stringify(globalThis.__LBS_LEADERBOARD)),
       });
     } catch (e) {
       console.warn('KV save error:', e.message);
@@ -83,11 +99,11 @@ export default async function handler(req, res) {
 
       let filtered = [...scores];
       if (filterCls && filterCls !== 'all') {
-        filtered = filtered.filter((s) => s.cls === filterCls);
+        filtered = filtered.filter((s) => s.cls === filterCls || s.favCls === filterCls);
       }
 
-      // Sort: highest score first, then highest wave, then lowest time
-      filtered.sort((a, b) => b.score - a.score || b.wave - a.wave || a.time - b.time);
+      // Sort: highest score first, then highest wave, then total kills, then lowest time
+      filtered.sort((a, b) => b.score - a.score || b.wave - a.wave || (b.totalKills || 0) - (a.totalKills || 0) || a.time - b.time);
       filtered = filtered.slice(0, limit);
 
       return res.status(200).json({
@@ -118,22 +134,22 @@ export default async function handler(req, res) {
       const kills = Math.max(0, parseInt(body.kills || '0', 10));
       const titans = Math.max(0, parseInt(body.titans || '0', 10));
       const time = Math.max(1, parseInt(body.time || '1', 10));
-      
+
       // Calculate or verify score
       const calcScore = (wave * 1200) + (kills * 65) + (titans * 5000) + Math.min(3000, Math.floor(time * 5));
       const score = Math.max(calcScore, parseInt(body.score || '0', 10));
 
-      const newEntry = {
-        id: 'run-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-        name,
-        cls,
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+      const runItem = {
         wave,
         kills,
         titans,
         time,
         score,
-        date: new Date().toISOString().slice(0, 10),
-        isUser: true,
+        cls,
+        date: dateStr,
+        timestamp: Date.now(),
       };
 
       const currentScores = await getStoredScores();
@@ -141,29 +157,96 @@ export default async function handler(req, res) {
         (s) => s.name.trim().toLowerCase() === name.toLowerCase()
       );
 
-      let recordedEntry = newEntry;
-      let isNewBest = true;
+      let recordedEntry = null;
+      let isNewBest = false;
 
       if (existingIndex !== -1) {
         const existing = currentScores[existingIndex];
-        if (score >= existing.score) {
-          // New Personal Best for this player
-          recordedEntry = {
-            ...existing,
-            ...newEntry,
-            id: existing.id || newEntry.id,
-          };
-          currentScores[existingIndex] = recordedEntry;
-        } else {
-          // Existing record is higher, preserve their highest achievement
-          recordedEntry = existing;
-          isNewBest = false;
+        const prevBestScore = existing.bestScore ?? existing.score ?? 0;
+        isNewBest = score >= prevBestScore;
+
+        const bestScore = Math.max(prevBestScore, score);
+        const bestWave = Math.max(existing.bestWave ?? existing.wave ?? 1, wave);
+        const bestKills = Math.max(existing.bestKills ?? existing.kills ?? 0, kills);
+        const bestTitans = Math.max(existing.bestTitans ?? existing.titans ?? 0, titans);
+
+        const expeditions = (existing.expeditions || 1) + 1;
+        const totalKills = (existing.totalKills ?? existing.kills ?? 0) + kills;
+        const totalTitans = (existing.totalTitans ?? existing.titans ?? 0) + titans;
+        const totalTime = (existing.totalTime ?? existing.time ?? 0) + time;
+
+        const classesPlayed = { ...(existing.classesPlayed || {}) };
+        classesPlayed[cls] = (classesPlayed[cls] || 0) + 1;
+
+        // Calculate favored class
+        let favCls = existing.favCls || cls;
+        let maxCount = 0;
+        for (const [c, cnt] of Object.entries(classesPlayed)) {
+          if (cnt > maxCount) {
+            maxCount = cnt;
+            favCls = c;
+          }
         }
+
+        const history = [runItem, ...(existing.history || [])].slice(0, 5);
+
+        recordedEntry = {
+          ...existing,
+          name: existing.name || name,
+          cls: isNewBest ? cls : (existing.cls || favCls),
+          favCls,
+          score: bestScore,
+          bestScore,
+          wave: bestWave,
+          bestWave,
+          kills: bestKills,
+          bestKills,
+          titans: bestTitans,
+          bestTitans,
+          time: isNewBest ? time : (existing.time || time),
+          totalKills,
+          totalTitans,
+          totalTime,
+          expeditions,
+          classesPlayed,
+          history,
+          lastActive: dateStr,
+          date: isNewBest ? dateStr : (existing.date || dateStr),
+          isUser: true,
+          id: existing.id || ('player-' + Date.now()),
+        };
+
+        currentScores[existingIndex] = recordedEntry;
       } else {
-        currentScores.push(newEntry);
+        isNewBest = true;
+        recordedEntry = {
+          id: 'player-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+          name,
+          cls,
+          favCls: cls,
+          score,
+          bestScore: score,
+          wave,
+          bestWave: wave,
+          kills,
+          bestKills: kills,
+          titans,
+          bestTitans: titans,
+          time,
+          totalKills: kills,
+          totalTitans: titans,
+          totalTime: time,
+          expeditions: 1,
+          classesPlayed: { [cls]: 1 },
+          history: [runItem],
+          lastActive: dateStr,
+          date: dateStr,
+          isUser: true,
+        };
+        currentScores.push(recordedEntry);
       }
 
-      currentScores.sort((a, b) => b.score - a.score || b.wave - a.wave || a.time - b.time);
+      currentScores.sort((a, b) => b.score - a.score || b.wave - a.wave || (b.totalKills || 0) - (a.totalKills || 0) || a.time - b.time);
       const trimmed = currentScores.slice(0, 100);
 
       await saveStoredScores(trimmed);
