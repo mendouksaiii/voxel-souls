@@ -117,43 +117,75 @@ export async function fetchLeaderboardScores(cls = 'all') {
 }
 
 export async function submitScore(entry) {
-  setSavedName(entry.name);
+  const cleanName = (entry.name || '').trim() || getSavedName(entry.cls);
+  setSavedName(cleanName);
   updatePlayerStats(entry);
 
-  // 1. Save locally immediately
+  // 1. Identify by player name and save locally immediately
   const local = getLocalScores();
-  const fullEntry = {
+  const existingIdx = local.findIndex(
+    (s) => s.name.trim().toLowerCase() === cleanName.toLowerCase()
+  );
+
+  let fullEntry = {
     ...entry,
+    name: cleanName,
     id: 'user-' + Date.now(),
     date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase(),
     isUser: true,
   };
-  local.push(fullEntry);
+  let isNewBest = true;
+
+  if (existingIdx !== -1) {
+    const existing = local[existingIdx];
+    if (entry.score >= existing.score) {
+      fullEntry = {
+        ...existing,
+        ...fullEntry,
+        id: existing.id || fullEntry.id,
+      };
+      local[existingIdx] = fullEntry;
+    } else {
+      fullEntry = existing;
+      isNewBest = false;
+    }
+  } else {
+    local.push(fullEntry);
+  }
+
   local.sort((a, b) => b.score - a.score || b.wave - a.wave || a.time - b.time);
   const trimmed = local.slice(0, 100);
   saveLocalScores(trimmed);
   cachedScores = trimmed;
 
-  const localRank = trimmed.findIndex((s) => s.id === fullEntry.id) + 1;
+  const localRank = trimmed.findIndex(
+    (s) => s.name.trim().toLowerCase() === cleanName.toLowerCase()
+  ) + 1;
 
   // 2. Attempt Vercel API submission
   try {
     const res = await fetch('/api/leaderboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(entry),
+      body: JSON.stringify({ ...entry, name: cleanName }),
     });
     if (res.ok) {
       const json = await res.json();
       if (json.success) {
-        return { success: true, rank: json.rank || localRank, entry: json.entry || fullEntry };
+        return {
+          success: true,
+          rank: json.rank || localRank,
+          entry: json.entry || fullEntry,
+          isNewBest: json.isNewBest ?? isNewBest,
+          name: cleanName,
+        };
       }
     }
   } catch (err) {
     console.warn('Leaderboard API sync failed, recorded locally:', err.message);
   }
 
-  return { success: true, rank: localRank, entry: fullEntry, offline: true };
+  return { success: true, rank: localRank, entry: fullEntry, isNewBest, name: cleanName, offline: true };
 }
 
 export function openLeaderboardModal(tab = 'all') {
@@ -183,23 +215,31 @@ export async function renderLeaderboardContent(tab = 'all') {
   const statsTitans = document.getElementById('hoc-stat-titans');
   const statsKills = document.getElementById('hoc-stat-kills');
 
-  // Update top player summary cards
+  const activeName = (getSavedName() || '').trim();
   const playerStats = getPlayerStats();
-  if (statsBestWave) statsBestWave.textContent = `WAVE ${playerStats.bestWave}`;
-  if (statsHighScore) statsHighScore.textContent = playerStats.highScore.toLocaleString();
-  if (statsTitans) statsTitans.textContent = `${playerStats.totalTitans} TITANS`;
-  if (statsKills) statsKills.textContent = `${playerStats.totalKills.toLocaleString()}`;
 
   if (listEl) {
     listEl.innerHTML = `
       <div class="hoc-loading">
         <div class="rwo-ring" style="width:36px;height:36px;margin:12px auto;"></div>
-        <span>CONSULTING THE ABYSSAL CODEX...</span>
+        <span>CONSULTING THE ABYSSAL CODEX FOR ${activeName.toUpperCase()}...</span>
       </div>
     `;
   }
 
   const scores = await fetchLeaderboardScores(tab);
+
+  // Update top player summary cards for the actively identified player name
+  const playerEntry = scores.find((s) => s.name.trim().toLowerCase() === activeName.toLowerCase());
+  const bestWave = playerEntry ? Math.max(playerStats.bestWave, playerEntry.wave) : playerStats.bestWave;
+  const highScore = playerEntry ? Math.max(playerStats.highScore, playerEntry.score) : playerStats.highScore;
+  const titans = playerEntry ? Math.max(playerStats.totalTitans, playerEntry.titans) : playerStats.totalTitans;
+  const kills = playerEntry ? Math.max(playerStats.totalKills, playerEntry.kills) : playerStats.totalKills;
+
+  if (statsBestWave) statsBestWave.textContent = `WAVE ${bestWave}`;
+  if (statsHighScore) statsHighScore.textContent = highScore.toLocaleString();
+  if (statsTitans) statsTitans.textContent = `${titans} TITANS`;
+  if (statsKills) statsKills.textContent = kills.toLocaleString();
 
   if (!listEl) return;
 
@@ -232,7 +272,9 @@ export async function renderLeaderboardContent(tab = 'all') {
     else if (s.wave >= 21) realmName = 'REALM III · VOID';
     else if (s.wave >= 11) realmName = 'REALM II · INFERNO';
 
-    const isUserClass = s.isUser ? 'is-user-run' : '';
+    // Player Identification: Match by player name!
+    const isPlayerMatch = s.name.trim().toLowerCase() === activeName.toLowerCase() || s.isUser;
+    const isUserClass = isPlayerMatch ? 'is-user-run' : '';
 
     return `
       <div class="hoc-row ${rowTier} ${isUserClass}">
@@ -240,7 +282,7 @@ export async function renderLeaderboardContent(tab = 'all') {
         <div class="hoc-col player">
           <div class="hoc-player-name">
             ${s.name}
-            ${s.isUser ? `<span class="hoc-you-badge">YOU</span>` : ''}
+            ${isPlayerMatch ? `<span class="hoc-you-badge">YOU</span>` : ''}
           </div>
           <div class="hoc-player-sub">${realmName} · WAVE ${s.wave}</div>
         </div>

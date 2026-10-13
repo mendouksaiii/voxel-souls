@@ -137,20 +137,45 @@ export default async function handler(req, res) {
       };
 
       const currentScores = await getStoredScores();
-      currentScores.push(newEntry);
+      const existingIndex = currentScores.findIndex(
+        (s) => s.name.trim().toLowerCase() === name.toLowerCase()
+      );
+
+      let recordedEntry = newEntry;
+      let isNewBest = true;
+
+      if (existingIndex !== -1) {
+        const existing = currentScores[existingIndex];
+        if (score >= existing.score) {
+          // New Personal Best for this player
+          recordedEntry = {
+            ...existing,
+            ...newEntry,
+            id: existing.id || newEntry.id,
+          };
+          currentScores[existingIndex] = recordedEntry;
+        } else {
+          // Existing record is higher, preserve their highest achievement
+          recordedEntry = existing;
+          isNewBest = false;
+        }
+      } else {
+        currentScores.push(newEntry);
+      }
 
       currentScores.sort((a, b) => b.score - a.score || b.wave - a.wave || a.time - b.time);
       const trimmed = currentScores.slice(0, 100);
 
       await saveStoredScores(trimmed);
 
-      const rank = trimmed.findIndex((s) => s.id === newEntry.id) + 1;
+      const rank = trimmed.findIndex((s) => s.name.trim().toLowerCase() === name.toLowerCase()) + 1;
 
       return res.status(201).json({
         success: true,
         rank: rank > 0 ? rank : null,
-        entry: newEntry,
-        message: 'Expedition recorded into Hall of Champions',
+        entry: recordedEntry,
+        isNewBest,
+        message: isNewBest ? `New personal best recorded for ${name}!` : `Existing best preserved for ${name}`,
       });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });

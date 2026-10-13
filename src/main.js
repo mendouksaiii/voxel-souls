@@ -13,7 +13,7 @@ import { ICONS, getIcon } from './icons.js';
 import * as Audio from './audio.js';
 import {
   initLeaderboard, openLeaderboardModal, closeLeaderboardModal,
-  calculateScore, submitScore, getSavedName, getPlayerStats,
+  calculateScore, submitScore, getSavedName, setSavedName, getPlayerStats,
 } from './leaderboard.js';
 
 // ---------- DOM ----------
@@ -826,11 +826,17 @@ function showVictoryScreen() {
           time: Math.floor(G.time),
           score: finalScore,
         });
+        const homeInput = $('home-player-name-input');
+        if (homeInput) homeInput.value = name;
         if (vicForm) vicForm.style.display = 'none';
         if (vicSuccess) {
           vicSuccess.classList.add('show');
           const msg = $('vic-success-msg');
-          if (msg) msg.textContent = `IMMORTALIZED! RANK #${res.rank || 1} IN HALL OF CHAMPIONS`;
+          if (msg) {
+            msg.textContent = res.isNewBest
+              ? `IMMORTALIZED NEW RECORD FOR ${name.toUpperCase()}! RANK #${res.rank || 1}`
+              : `LEGEND PRESERVED FOR ${name.toUpperCase()}! RANK #${res.rank || 1}`;
+          }
         }
       };
     }
@@ -3685,11 +3691,17 @@ function gameOver() {
         time: Math.floor(G.time),
         score: finalScore,
       });
+      const homeInput = $('home-player-name-input');
+      if (homeInput) homeInput.value = name;
       if (goForm) goForm.style.display = 'none';
       if (goSuccess) {
         goSuccess.classList.add('show');
         const msg = $('go-success-msg');
-        if (msg) msg.textContent = `GLORY ARCHIVED! RANK #${res.rank || 1} IN HALL OF CHAMPIONS`;
+        if (msg) {
+          msg.textContent = res.isNewBest
+            ? `NEW PERSONAL BEST FOR ${name.toUpperCase()}! RANK #${res.rank || 1}`
+            : `RECORD PRESERVED FOR ${name.toUpperCase()}! RANK #${res.rank || 1}`;
+        }
       }
     };
   }
@@ -3783,6 +3795,18 @@ function initHomeUI() {
   if (goSuccessIcon) goSuccessIcon.innerHTML = getIcon('check', 16);
   const vicSuccessIcon = $('vic-success-icon');
   if (vicSuccessIcon) vicSuccessIcon.innerHTML = getIcon('check', 16);
+
+  // Player Champion Identity Header
+  const pidIcon = $('pid-user-icon');
+  if (pidIcon) pidIcon.innerHTML = getIcon('user', 14);
+  const homeNameInput = $('home-player-name-input');
+  if (homeNameInput) {
+    homeNameInput.value = getSavedName(G.selectedClass || 'knight');
+    homeNameInput.oninput = () => {
+      const val = homeNameInput.value.trim();
+      if (val) setSavedName(val);
+    };
+  }
 
   const stats = getPlayerStats();
   const homeRec = $('home-record');

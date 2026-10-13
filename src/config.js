@@ -96,31 +96,31 @@ export const BOSSES = {
   zombieKing: { 
     name: 'Zombie King', 
     title: 'Ancient Undead Monarch', 
-    hp: 1400, speed: 2.6, dmg: 24, xp: 120, radius: 1.4, tex: 'zombie', size: [2.4, 4.4, 2.4],
+    hp: 2800, speed: 2.8, dmg: 36, xp: 220, radius: 1.4, tex: 'zombie', size: [2.4, 4.4, 2.4],
     attacks: [
-      { id: 'earthshaker', name: 'Cataclysmic Slam', desc: 'Leaps skyward and crashes down with expanding emerald shockwaves and stone spikes.', telegraph: 1.1 },
-      { id: 'tomb_legion', name: 'Tomb Legion Fissures', desc: 'Erupts necrotic spirit geysers under the player and summons armoured crypt guards.', telegraph: 1.2 },
-      { id: 'monarch_charge', name: 'Sovereign Bull Rush', desc: 'Locks aim with a crimson trajectory and charges at high speed with a 360° cleave.', telegraph: 1.0 }
+      { id: 'earthshaker', name: 'Cataclysmic Slam', desc: 'Leaps skyward and crashes down with expanding emerald shockwaves and stone spikes.', telegraph: 1.0 },
+      { id: 'tomb_legion', name: 'Tomb Legion Fissures', desc: 'Erupts necrotic spirit geysers under the player and summons armoured crypt guards.', telegraph: 1.1 },
+      { id: 'monarch_charge', name: 'Sovereign Bull Rush', desc: 'Locks aim with a crimson trajectory and charges at high speed with a 360° cleave.', telegraph: 0.9 }
     ]
   },
   blazeLord: { 
     name: 'Blaze Lord', 
     title: 'Molten Core Sovereign', 
-    hp: 2200, speed: 2.4, dmg: 20, xp: 180, radius: 1.4, tex: 'skeleton', size: [2.4, 4.6, 2.4],
+    hp: 4800, speed: 2.6, dmg: 44, xp: 340, radius: 1.4, tex: 'skeleton', size: [2.4, 4.6, 2.4],
     attacks: [
-      { id: 'spiral_nova', name: 'Volcanic Spiral Nova', desc: 'Channels an Archimedean spiral of rotating fireballs in an intense bullet hell.', telegraph: 1.0 },
-      { id: 'meteor_strike', name: 'Brimstone Meteors', desc: 'Locks multiple impact reticles on the ground, calling down devastating flaming meteors.', telegraph: 1.2 },
-      { id: 'infernal_vortex', name: 'Solar Heat Vortex', desc: 'Draws the player inward with intense thermal gravity before detonating outward.', telegraph: 1.4 }
+      { id: 'spiral_nova', name: 'Volcanic Spiral Nova', desc: 'Channels an Archimedean spiral of rotating fireballs in an intense bullet hell.', telegraph: 0.95 },
+      { id: 'meteor_strike', name: 'Brimstone Meteors', desc: 'Locks multiple impact reticles on the ground, calling down devastating flaming meteors.', telegraph: 1.1 },
+      { id: 'infernal_vortex', name: 'Solar Heat Vortex', desc: 'Draws the player inward with intense thermal gravity before detonating outward.', telegraph: 1.3 }
     ]
   },
   warden: { 
     name: 'The Warden', 
     title: 'Ender of Dimensions', 
-    hp: 3600, speed: 3.0, dmg: 40, xp: 300, radius: 1.6, tex: 'creeper', size: [2.8, 5.2, 2.8],
+    hp: 8500, speed: 3.2, dmg: 65, xp: 550, radius: 1.6, tex: 'creeper', size: [2.8, 5.2, 2.8],
     attacks: [
-      { id: 'void_blink', name: 'Null-Blink Scythe', desc: 'Dematerializes and blinks directly behind the player, sweeping a 180° cosmic void blade.', telegraph: 0.8 },
-      { id: 'death_ray', name: 'Abyssal Oblivion Beam', desc: 'Locks a crimson targeting laser and sweeps a massive dimensional disintegrator beam.', telegraph: 1.1 },
-      { id: 'event_horizon', name: 'Dimensional Singularity', desc: 'Summons a cosmic black hole emitting radial cross-pulsing void spheres before collapsing.', telegraph: 1.3 }
+      { id: 'void_blink', name: 'Null-Blink Scythe', desc: 'Dematerializes and blinks directly behind the player, sweeping a 180° cosmic void blade.', telegraph: 0.75 },
+      { id: 'death_ray', name: 'Abyssal Oblivion Beam', desc: 'Locks a crimson targeting laser and sweeps a massive dimensional disintegrator beam.', telegraph: 1.0 },
+      { id: 'event_horizon', name: 'Dimensional Singularity', desc: 'Summons a cosmic black hole emitting radial cross-pulsing void spheres before collapsing.', telegraph: 1.2 }
     ]
   },
 };
@@ -176,45 +176,52 @@ export const MAPS = [
 
 export const ARENA = { size: 86, wallH: 13, spawnRing: 26 };
 
-// Progressive roguelite difficulty curve: exponential stat scaling across waves & realms.
+// Progressive roguelite difficulty curve: ~2x compounding stat jumps across waves & punishing titans.
 export function waveSpec(wave) {
   const mapIndex = Math.min(2, Math.floor((wave - 1) / 10));
   const isBoss = wave % 10 === 0;
   const inMap = ((wave - 1) % 10) + 1;        // 1..10 within current realm
 
-  // Realm tier baseline jump:
+  // Realm tier baseline jumps:
   // Realm 1 (Forgotten Sanctum): 1.0x baseline
-  // Realm 2 (The Inferno): 1.85x baseline jump (punishing brimstone & hellhounds)
-  // Realm 3 (The Abyssal Void): 2.95x baseline jump (cosmic horrors)
-  const realmTierMult = mapIndex === 0 ? 1.0 : (mapIndex === 1 ? 1.85 : 2.95);
-  const endlessMult = wave > 30 ? Math.pow(1.10, wave - 30) : 1.0;
+  // Realm 2 (The Inferno): 2.4x baseline jump
+  // Realm 3 (The Abyssal Void): 4.2x baseline jump
+  const realmTierMult = mapIndex === 0 ? 1.0 : (mapIndex === 1 ? 2.4 : 4.2);
+  const endlessMult = wave > 30 ? Math.pow(1.18, wave - 30) : 1.0;
 
-  // Exponential HP Scaling
-  const hpScale = (1 + (inMap - 1) * 0.18) * realmTierMult * endlessMult;
+  // 2x Stronger each wave curve:
+  // Wave 1: 1.0x baseline
+  // Wave 2: ~2.15x (literally >2x of Wave 1)
+  // Wave 3: ~3.85x
+  // Wave 4: ~6.2x
+  // Wave 5: ~9.4x
+  // Wave 10: ~32x
+  const inMapStep = (inMap - 1);
+  const hpScale = (1 + inMapStep * 1.05) * Math.pow(1.16, inMapStep) * realmTierMult * endlessMult;
 
-  // Terrifying Damage Scaling (later realm mobs chunk with lethal force)
+  // Punishing Damage Scaling (foes hit significantly harder each wave)
   const baseDmgMult = mapIndex === 0 
-    ? (1 + (inMap - 1) * 0.08) 
-    : (mapIndex === 1 ? (1.65 + (inMap - 1) * 0.13) : (2.75 + (inMap - 1) * 0.18));
+    ? (1 + inMapStep * 0.42) * Math.pow(1.08, inMapStep)
+    : (mapIndex === 1 ? (2.2 + inMapStep * 0.55) : (3.8 + inMapStep * 0.75));
   const dmgScale = baseDmgMult * endlessMult;
 
   // Speed Scaling: relentless pursuit
-  const spdScale = 1 + Math.min(0.75, (wave - 1) * 0.022);
+  const spdScale = 1 + Math.min(0.85, (wave - 1) * 0.028);
 
   // High Mob Swarm Density & Rapid Spawn cadence
-  const count = isBoss ? 0 : Math.round((8 + inMap * 2.8 + mapIndex * 6) * (wave > 30 ? 1.35 : 1.0));
-  const spawnRate = Math.max(0.18, 0.95 - inMap * 0.055 - mapIndex * 0.09);
+  const count = isBoss ? 0 : Math.round((9 + inMap * 3.2 + mapIndex * 7) * (wave > 30 ? 1.4 : 1.0));
+  const spawnRate = Math.max(0.14, 0.90 - inMap * 0.06 - mapIndex * 0.10);
 
   // Snipers: faster projectile arrows and reduced shot cooldowns
-  const shotCdScale = Math.max(0.55, 1 - (wave - 1) * 0.02);
-  const projSpeedScale = 1 + Math.min(0.5, (wave - 1) * 0.015);
+  const shotCdScale = Math.max(0.42, 1 - (wave - 1) * 0.03);
+  const projSpeedScale = 1 + Math.min(0.75, (wave - 1) * 0.022);
 
-  // Titan Boss Scaling
-  const bossHpScale = (mapIndex === 0 ? 1.4 : (mapIndex === 1 ? 2.2 : 3.5)) * endlessMult;
-  const bossDmgScale = (mapIndex === 0 ? 1.25 : (mapIndex === 1 ? 2.0 : 3.2)) * endlessMult;
+  // Titan Boss Scaling: significantly reinforced monarch stats
+  const bossHpScale = (mapIndex === 0 ? 2.2 : (mapIndex === 1 ? 3.4 : 5.0)) * endlessMult;
+  const bossDmgScale = (mapIndex === 0 ? 1.75 : (mapIndex === 1 ? 2.85 : 4.2)) * endlessMult;
 
-  // Elite Champion spawn chance
-  const eliteChance = wave >= 4 ? Math.min(0.35, 0.10 + (wave - 4) * 0.015) : 0;
+  // Elite Champion spawn chance: starts at wave 3, scaling up to 45%
+  const eliteChance = wave >= 3 ? Math.min(0.45, 0.12 + (wave - 3) * 0.025) : 0;
 
   return {
     wave, mapIndex, isBoss, inMap, count,
