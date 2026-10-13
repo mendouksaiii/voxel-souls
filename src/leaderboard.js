@@ -79,6 +79,56 @@ export function setSavedName(name) {
   } catch (_) {}
 }
 
+export const RUNIC_TITLES = {
+  knight: [
+    'Valerius Voidbane', 'Aurelius Dawnshield', 'Kaelen Ironheart', 'Lord Malakor',
+    'Torin Stormguard', 'Gideon Sunforged', 'Berrick Crownshield', 'Vaelen Oathkeeper',
+    'Ragnar Blackstone', 'Alden Silverbulwark', 'Corvus Ironwill', 'Theron Sunreaver'
+  ],
+  mage: [
+    'Zili Astralvoid', 'Seraphina Starweaver', 'Ignis Solflare', 'Morrigan Nightshade',
+    'Xanthe Eclipse', 'Elysia Chronos', 'Valtiel Nova', 'Caelum Null',
+    'Lyanna Arcaneveil', 'Zephyr Netherflame', 'Vesper Voidwhisper', 'Orion Starlord'
+  ],
+  archer: [
+    'Sylas Ghoststride', 'Lyra Shadowhawk', 'Kael Windrunner', 'Aren Falconeye',
+    'Vesper Nightveil', 'Orin Swiftshot', 'Talon Duskwalker', 'Rowan Frostbow',
+    'Darius Whisperwind', 'Cassian Gloomseeker', 'Fenris Stormpierce', 'Caelen Swiftquiver'
+  ]
+};
+
+export function getRandomRunicName(cls = 'knight') {
+  const pool = RUNIC_TITLES[cls] || RUNIC_TITLES.knight;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export function updateLandingCareerBadge(name) {
+  const badgeEl = document.getElementById('landing-career-badge');
+  const textEl = document.getElementById('landing-career-text');
+  if (!badgeEl || !textEl) return;
+
+  const cleanName = (name || '').trim();
+  if (!cleanName) {
+    textEl.textContent = 'ENTER SOVEREIGN HANDLE';
+    badgeEl.className = 'aic-career-badge';
+    return;
+  }
+
+  const scores = getLocalScores();
+  const entry = scores.find((s) => s.name.trim().toLowerCase() === cleanName.toLowerCase());
+  if (entry) {
+    const rank = scores.findIndex((s) => s.name.trim().toLowerCase() === cleanName.toLowerCase()) + 1;
+    const runs = entry.expeditions || 1;
+    const bestWave = entry.bestWave || entry.wave || 1;
+    const peakScore = (entry.bestScore || entry.score || 0).toLocaleString();
+    textEl.innerHTML = `RANK #${rank} · ${runs} ${runs === 1 ? 'RUN' : 'RUNS'} · BEST: WAVE ${bestWave} (${peakScore} PTS)`;
+    badgeEl.className = 'aic-career-badge ranked';
+  } else {
+    textEl.innerHTML = `NEW CHALLENGER · UNRANKED IN CODEX · READY FOR RUN`;
+    badgeEl.className = 'aic-career-badge new';
+  }
+}
+
 export function getLocalScores() {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -306,16 +356,18 @@ function updateTabUI(tab) {
 }
 
 // Global toggle for player dossier drawer
-window.__toggleHocDossier = (idx) => {
-  const dossier = document.getElementById(`hoc-dossier-${idx}`);
-  const icon = document.getElementById(`hoc-exp-icon-${idx}`);
-  if (!dossier) return;
-  const isShown = dossier.style.display === 'block';
-  dossier.style.display = isShown ? 'none' : 'block';
-  if (icon) {
-    icon.innerHTML = isShown ? getIcon('chevron_down', 13) : getIcon('chevron_up', 13);
-  }
-};
+if (typeof window !== 'undefined') {
+  window.__toggleHocDossier = (idx) => {
+    const dossier = document.getElementById(`hoc-dossier-${idx}`);
+    const icon = document.getElementById(`hoc-exp-icon-${idx}`);
+    if (!dossier) return;
+    const isShown = dossier.style.display === 'block';
+    dossier.style.display = isShown ? 'none' : 'block';
+    if (icon) {
+      icon.innerHTML = isShown ? getIcon('chevron_down', 13) : getIcon('chevron_up', 13);
+    }
+  };
+}
 
 export async function renderLeaderboardContent(tab = 'all') {
   const listEl = document.getElementById('hoc-scores-body');

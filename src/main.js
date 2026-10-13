@@ -14,6 +14,7 @@ import * as Audio from './audio.js';
 import {
   initLeaderboard, openLeaderboardModal, closeLeaderboardModal,
   calculateScore, submitScore, getSavedName, setSavedName, getPlayerStats,
+  getRandomRunicName, updateLandingCareerBadge,
 } from './leaderboard.js';
 
 // ---------- DOM ----------
@@ -793,6 +794,10 @@ function showVictoryScreen() {
   const finalScore = calculateScore(30, G.kills, 3, G.time);
 
   if (dom.victorymodal) {
+    const slayerTag = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
+    const vicTitle = $('victitle');
+    if (vicTitle) vicTitle.textContent = `CONQUEROR ${slayerTag} ASCENDED`;
+
     if (dom.vstatWaves) dom.vstatWaves.textContent = '30 / 30';
     if (dom.vstatKills) dom.vstatKills.textContent = G.kills;
     if (dom.vstatTime) dom.vstatTime.textContent = fmt(G.time);
@@ -802,7 +807,7 @@ function showVictoryScreen() {
     if (vicScoreDisplay) vicScoreDisplay.textContent = `${finalScore.toLocaleString()} PTS`;
 
     const vicInput = $('vic-player-name');
-    if (vicInput) vicInput.value = getSavedName(G.selectedClass);
+    if (vicInput) vicInput.value = G.playerName || getSavedName(G.selectedClass);
 
     const vicForm = $('vic-submit-form');
     const vicSuccess = $('vic-submit-success');
@@ -828,6 +833,9 @@ function showVictoryScreen() {
         });
         const homeInput = $('home-player-name-input');
         if (homeInput) homeInput.value = name;
+        const landingInput = $('landing-player-name');
+        if (landingInput) landingInput.value = name;
+        updateLandingCareerBadge(name);
         if (vicForm) vicForm.style.display = 'none';
         if (vicSuccess) {
           vicSuccess.classList.add('show');
@@ -2502,14 +2510,23 @@ function startWave(n) {
 
   if (dom.wavesub) dom.wavesub.textContent = `${MAPS[spec.mapIndex].name} · ${MAPS[spec.mapIndex].subtitle}`;
 
+  const slayerTag = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
+
   if (spec.isBoss) {
     G.toSpawn = 0;
     spawnBoss(MAPS[spec.mapIndex].boss);
-    showWaveBanner('TITAN ENCOUNTER', (BOSSES[MAPS[spec.mapIndex].boss]?.name || 'TITAN').toUpperCase());
+    const bossName = (BOSSES[MAPS[spec.mapIndex].boss]?.name || 'TITAN').toUpperCase();
+    showWaveBanner('MONARCH CONFRONTATION', `${slayerTag} VS ${bossName}`);
+    const bChallenger = $('boss-challenger-tag');
+    if (bChallenger) bChallenger.textContent = `VS ${slayerTag}`;
     Audio.playWaveStart(true);
+  } else if (n === 1) {
+    G.toSpawn = spec.count; G.spawnTimer = 0.4;
+    showWaveBanner('EXPEDITION COMMENCED', `${slayerTag} · REALM I: SANCTUM`);
+    Audio.playWaveStart(false);
   } else {
     G.toSpawn = spec.count; G.spawnTimer = 0.4;
-    showWaveBanner('WAVE ' + n, MAPS[spec.mapIndex].name);
+    showWaveBanner('WAVE ' + n, `${slayerTag} · ${MAPS[spec.mapIndex].name}`);
     Audio.playWaveStart(false);
   }
 }
@@ -2537,13 +2554,16 @@ function updateWaves(dt) {
       return;
     }
     G.betweenTimer = 2.5;
-    showWaveBanner('WAVE CLEAR', 'PREPARE FOR THE NEXT ENCOUNTER');
+    const slayerTag = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
+    showWaveBanner('WAVE CLEAR', `${slayerTag} ADVANCES TO NEXT ENCOUNTER`);
   }
 }
 
 function bossDefeated() {
   const isFinalBoss = G.mapIndex >= 2;
-  showWaveBanner('TITAN SLAIN', isFinalBoss ? 'ALL REALMS CONQUERED · ASCENSION GATE AWAKENS' : 'REALM PURIFIED · DESCENT WAYGATE AWAKENS');
+  const slayerTag = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
+  const bossName = (BOSSES[MAPS[G.mapIndex].boss]?.name || 'TITAN').toUpperCase();
+  showWaveBanner('MONARCH PURGED', `${slayerTag} CONQUERS ${bossName}`);
   Audio.playLevelUp();
   for (let i = enemies.length - 1; i >= 0; i--) { if (!enemies[i].isBoss) { releaseEnemy(enemies[i]); enemies.splice(i, 1); } }
   player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.35);
@@ -3617,12 +3637,16 @@ function startRun(cls) {
   cls = cls || G.class || 'knight';
   const C = CLASSES[cls];
   resetActors();
+
+  const activeName = (getSavedName(cls) || '').trim() || 'Sovereign Slayer';
+
   Object.assign(G, {
     mode: 'playing', time: 0, wave: 0, kills: 0, mapIndex: 0,
     level: 1, xp: 0, xpNeed: xpForLevel(1), pendingLevels: 0, drafting: false,
     boss: null, bossGhostPct: 100, combo: 0, comboTimer: 0, dmgWindow: [], shakeMag: 0, waveActive: false, betweenTimer: 0,
     waitingForPortal: false,
     class: cls, classWeapon: C.weapon,
+    playerName: activeName,
   });
   P = { speed: PLAYER.speed * C.speedMul, dashCd: PLAYER.dashCd, pickupRange: PLAYER.pickupRange };
   modifiers = { cdMul: 1, dmgMul: 1, xpMul: 1, regen: 0, thorns: 0, lifesteal: 0, crit: 0.12 };
@@ -3634,6 +3658,15 @@ function startRun(cls) {
   for (const m of player.tint) m.emissive.setRGB(0, 0, 0);
   initHeroSpecials(cls);
   applyBiome(0); buildArena(0);
+
+  // HUD Sovereign Handle Badge
+  const hudSlayerName = $('hud-slayer-name');
+  if (hudSlayerName) hudSlayerName.textContent = activeName;
+  const hudSlayerCls = $('hud-slayer-cls');
+  if (hudSlayerCls) hudSlayerCls.textContent = (cls || 'knight').toUpperCase();
+  const hsbIcon = $('hsb-user-icon');
+  if (hsbIcon) hsbIcon.innerHTML = getIcon('user', 13);
+
   dom.menu.classList.remove('show'); dom.gameover.classList.remove('show');
   dom.pause.classList.remove('show'); dom.classselect.classList.remove('show');
   if (dom.victorymodal) dom.victorymodal.classList.remove('show');
@@ -3657,7 +3690,8 @@ function gameOver() {
   const homeRec = $('home-record');
   if (homeRec) homeRec.textContent = 'WAVE ' + best;
 
-  dom.gotitle.textContent = 'SOVEREIGN FALLEN';
+  const slayerTag = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
+  dom.gotitle.textContent = `SOVEREIGN ${slayerTag} FALLEN`;
   dom.gostats.innerHTML = `Reached <b style="color:#ffd24a">Wave ${G.wave}</b> · ${MAPS[G.mapIndex].name}<br/>` +
     `${G.kills} foes vanquished · ${titans} monarchs slain · ${fmt(G.time)} survived<br/>` +
     `<span style="color:#38bdf8;font-size:9px;margin-top:6px;display:inline-block">EXPEDITION SCORE: <b>${finalScore.toLocaleString()} PTS</b></span>`;
@@ -3667,7 +3701,7 @@ function gameOver() {
   if (goScoreDisplay) goScoreDisplay.textContent = `${finalScore.toLocaleString()} PTS`;
 
   const goInput = $('go-player-name');
-  if (goInput) goInput.value = getSavedName(G.selectedClass);
+  if (goInput) goInput.value = G.playerName || getSavedName(G.selectedClass);
 
   const goForm = $('go-submit-form');
   const goSuccess = $('go-submit-success');
@@ -3693,6 +3727,9 @@ function gameOver() {
       });
       const homeInput = $('home-player-name-input');
       if (homeInput) homeInput.value = name;
+      const landingInput = $('landing-player-name');
+      if (landingInput) landingInput.value = name;
+      updateLandingCareerBadge(name);
       if (goForm) goForm.style.display = 'none';
       if (goSuccess) {
         goSuccess.classList.add('show');
@@ -3709,7 +3746,14 @@ function gameOver() {
   dom.gameover.classList.add('show');
 }
 function togglePause() {
-  if (G.mode === 'playing') { G.mode = 'paused'; dom.pause.classList.add('show'); }
+  if (G.mode === 'playing') {
+    G.mode = 'paused';
+    dom.pause.classList.add('show');
+    const pName = $('pause-slayer-name');
+    if (pName) pName.textContent = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
+    const pMeta = $('pause-slayer-meta');
+    if (pMeta) pMeta.textContent = `WAVE ${G.wave} · ${(G.selectedClass || G.class || 'knight').toUpperCase()} · ${G.kills} FOES SLAIN`;
+  }
   else if (G.mode === 'paused') { G.mode = 'playing'; dom.pause.classList.remove('show'); }
 }
 function bindUI() {
@@ -3796,15 +3840,51 @@ function initHomeUI() {
   const vicSuccessIcon = $('vic-success-icon');
   if (vicSuccessIcon) vicSuccessIcon.innerHTML = getIcon('check', 16);
 
-  // Player Champion Identity Header
+  // Player Champion Identity Header & Landing Registry Console
   const pidIcon = $('pid-user-icon');
   if (pidIcon) pidIcon.innerHTML = getIcon('user', 14);
+  const aicCrest = $('aic-crest-icon');
+  if (aicCrest) aicCrest.innerHTML = getIcon('crown', 16);
+  const aicDice = $('aic-dice-icon');
+  if (aicDice) aicDice.innerHTML = getIcon('dice', 14);
+
   const homeNameInput = $('home-player-name-input');
+  const landingNameInput = $('landing-player-name');
+  const currentSavedName = getSavedName(G.selectedClass || 'knight');
+
+  if (homeNameInput) homeNameInput.value = currentSavedName;
+  if (landingNameInput) landingNameInput.value = currentSavedName;
+  updateLandingCareerBadge(currentSavedName);
+
+  const syncNameInputs = (newVal) => {
+    const clean = newVal.trim();
+    if (homeNameInput && homeNameInput.value !== newVal) homeNameInput.value = newVal;
+    if (landingNameInput && landingNameInput.value !== newVal) landingNameInput.value = newVal;
+    if (clean) {
+      setSavedName(clean);
+      updateLandingCareerBadge(clean);
+    }
+  };
+
   if (homeNameInput) {
-    homeNameInput.value = getSavedName(G.selectedClass || 'knight');
-    homeNameInput.oninput = () => {
-      const val = homeNameInput.value.trim();
-      if (val) setSavedName(val);
+    homeNameInput.oninput = () => syncNameInputs(homeNameInput.value);
+  }
+  if (landingNameInput) {
+    landingNameInput.oninput = () => syncNameInputs(landingNameInput.value);
+  }
+
+  // Randomize Runic Slayer Handle Button
+  const randomizeBtn = $('aic-randomize-btn');
+  if (randomizeBtn) {
+    randomizeBtn.onclick = () => {
+      const activeCls = G.selectedClass || 'knight';
+      const runicTitle = getRandomRunicName(activeCls);
+      syncNameInputs(runicTitle);
+      Audio.playGem();
+      if (landingNameInput) {
+        landingNameInput.style.transform = 'scale(1.03)';
+        setTimeout(() => { if (landingNameInput) landingNameInput.style.transform = 'none'; }, 150);
+      }
     };
   }
 
@@ -3821,6 +3901,11 @@ function initHomeUI() {
       G.selectedClass = cls;
       createPlayer(cls);
       updateHeroDetailsCard(cls);
+      const currentName = (landingNameInput?.value || '').trim();
+      if (!currentName || currentName === 'Vanguard Sovereign' || currentName === 'Astral Sorcerer' || currentName === 'Verdant Ranger') {
+        const defaultName = getSavedName(cls);
+        syncNameInputs(defaultName);
+      }
       if (cls === 'knight') Audio.playSpecialSound('aegis');
       else if (cls === 'mage') Audio.playSpecialSound('singularity');
       else Audio.playBow();

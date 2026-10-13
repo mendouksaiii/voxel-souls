@@ -671,6 +671,201 @@
     letter-spacing: 0.5px;
   }
 
+  /* Sovereign Slayer Identity Registry Console (Landing Page) */
+  #aaa-identity-console {
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(255, 210, 74, 0.35);
+    border-radius: 8px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    max-width: 440px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(255, 210, 74, 0.05);
+    transition: border-color .2s ease;
+  }
+  #aaa-identity-console:focus-within {
+    border-color: #ffd24a;
+    box-shadow: 0 0 25px rgba(255, 210, 74, 0.25), inset 0 0 15px rgba(255, 210, 74, 0.08);
+  }
+  .aic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .aic-title-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .aic-crest-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+  }
+  .aic-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 800;
+    color: #ffd24a;
+    letter-spacing: 1px;
+  }
+  .aic-career-badge {
+    font-size: 8.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .aic-career-badge.ranked {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #ffd24a;
+  }
+  .aic-career-badge.new {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+  }
+  .acb-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .aic-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .aic-field-box {
+    flex: 1;
+    position: relative;
+  }
+  .aic-input {
+    width: 100%;
+    background: rgba(6, 9, 15, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    color: #ffd24a;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 800;
+    padding: 7px 10px;
+    outline: none;
+    letter-spacing: 0.5px;
+    box-sizing: border-box;
+    transition: all .2s ease;
+  }
+  .aic-input:focus {
+    border-color: #ffd24a;
+    box-shadow: 0 0 10px rgba(255, 210, 74, 0.3);
+  }
+  .aic-dice-btn {
+    cursor: pointer;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 5px;
+    color: #ffd24a;
+    font-family: var(--font-ui);
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 7px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    transition: all .15s ease;
+  }
+  .aic-dice-btn:hover {
+    background: rgba(245, 158, 11, 0.3);
+    border-color: #ffd24a;
+    box-shadow: 0 0 12px rgba(255, 210, 74, 0.35);
+    transform: translateY(-1px);
+  }
+  .aic-hint {
+    font-size: 8px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.8px;
+  }
+
+  /* HUD Active Slayer Badge */
+  .hud-slayer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(11, 15, 23, 0.85);
+    border: 1px solid rgba(255, 210, 74, 0.3);
+    border-radius: 4px;
+    padding: 3px 8px;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  }
+  .hsb-icon {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+  }
+  .hsb-name {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 800;
+    color: #ffd24a;
+    letter-spacing: 0.5px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hsb-cls {
+    font-size: 8px;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+  .boss-challenger-tag {
+    font-size: 9px;
+    font-weight: 800;
+    color: #ffd24a;
+    margin-left: 8px;
+    letter-spacing: 1px;
+  }
+  .pause-slayer-card {
+    background: rgba(11, 15, 23, 0.85);
+    border: 1px solid rgba(255, 210, 74, 0.25);
+    border-radius: 6px;
+    padding: 8px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .psc-label { font-size: 8px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; }
+  .psc-name { font-family: var(--font-display); font-size: 14px; font-weight: 800; color: #ffd24a; }
+  .psc-meta { font-size: 9px; color: #cbd5e1; }
+
   /* 4. EXPEDITION CODEX MODAL */
   #guidemodal {
     font-family: var(--font-ui);
@@ -1790,6 +1985,11 @@
   <div id="hud">
     <div id="topbar">
       <div class="stat" id="statleft">LVL <b id="lvl">1</b><br/>KILLS <b id="kills">0</b></div>
+      <div id="hud-slayer-badge" class="hud-slayer-badge" title="Active Sovereign Handle">
+        <span class="hsb-icon" id="hsb-user-icon"></span>
+        <span class="hsb-name" id="hud-slayer-name">CHAMPION</span>
+        <span class="hsb-cls" id="hud-slayer-cls">KNIGHT</span>
+      </div>
       <div id="wavewrap"><div id="wave">WAVE 1</div><div id="wavesub">STONE DUNGEON</div></div>
       <div class="stat" id="statright" style="text-align:right">
         TIME <b id="time">0:00</b><br/>
@@ -1810,6 +2010,7 @@
       <div id="bossmeta">
         <span id="bossname">BOSS</span>
         <span id="bosstitle">ENCOUNTER</span>
+        <span id="boss-challenger-tag" class="boss-challenger-tag">VS CHAMPION</span>
       </div>
       <div id="bosstrack">
         <div id="bossghostfill"></div>
@@ -2079,6 +2280,31 @@
           </button>
         </div>
 
+        <!-- Sovereign Slayer Identity Registry Console -->
+        <div id="aaa-identity-console">
+          <div class="aic-header">
+            <div class="aic-title-group">
+              <span class="aic-crest-icon" id="aic-crest-icon"></span>
+              <span class="aic-title">SOVEREIGN CODEX REGISTRY</span>
+            </div>
+            <div class="aic-career-badge" id="landing-career-badge">
+              <span class="acb-dot"></span>
+              <span class="acb-text" id="landing-career-text">CAREER: 0 RUNS · UNRANKED</span>
+            </div>
+          </div>
+
+          <div class="aic-input-row">
+            <div class="aic-field-box">
+              <input type="text" id="landing-player-name" class="aic-input" maxlength="24" placeholder="Enter Champion Name..." spellcheck="false" autocomplete="off" />
+            </div>
+            <button id="aic-randomize-btn" class="aic-dice-btn" type="button" title="Generate Runic Slayer Title">
+              <span id="aic-dice-icon"></span>
+              <span>RUNIC TITLE</span>
+            </button>
+          </div>
+          <div class="aic-hint">ETCHED ONTO HALL OF CHAMPIONS ON EVERY ENCOUNTER</div>
+        </div>
+
         <div id="aaa-deploy-wrap">
           <button class="aaa-deploy-btn" id="startbtn">
             <span class="deploy-label">ENTER THE CRUCIBLE</span>
@@ -2210,8 +2436,13 @@
   </div>
 
   <div class="overlay" id="pause">
-    <div style="max-width:360px;width:90%;background:rgba(15,23,42,0.96);border:2px solid #ffd24a;border-radius:12px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 0 40px rgba(0,0,0,0.8);">
-      <h1 style="font-family:var(--font-display);font-size:24px;color:#ffd24a;margin:0;letter-spacing:2px">EXPEDITION PAUSED</h1>
+    <div style="max-width:380px;width:90%;background:rgba(15,23,42,0.96);border:2px solid #ffd24a;border-radius:12px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 0 40px rgba(0,0,0,0.8);">
+      <h1 style="font-family:var(--font-display);font-size:22px;color:#ffd24a;margin:0;letter-spacing:2px">EXPEDITION PAUSED</h1>
+      <div class="pause-slayer-card" id="pause-slayer-card">
+        <span class="psc-label">ACTIVE SOVEREIGN</span>
+        <span class="psc-name" id="pause-slayer-name">CHAMPION</span>
+        <span class="psc-meta" id="pause-slayer-meta">WAVE 1 · VANGUARD</span>
+      </div>
       <button class="btn" id="resumebtn" style="width:100%">RESUME COMBAT</button>
       <button class="sub-btn" id="pause-leaderboard-btn" style="width:100%;padding:10px">HALL OF CHAMPIONS</button>
     </div>
