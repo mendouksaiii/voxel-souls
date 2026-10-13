@@ -45,6 +45,7 @@ export function toggleMute() {
   if (ctx && masterGain) {
     masterGain.gain.setValueAtTime(isMutedState ? 0 : 0.45, ctx.currentTime);
   }
+  updateBgmVolume();
   return isMutedState;
 }
 
@@ -423,3 +424,132 @@ export function playVictory() {
     osc.start(t); osc.stop(t + 1.5);
   });
 }
+
+// ============================================================= BACKGROUND MUSIC (BGM)
+let bgmAudio = null;
+let bgmGain = null;
+let bgmSourceNode = null;
+let currentBgmTrack = null;
+let bgmFadeTimer = null;
+const BGM_VOLUME = 0.50;
+
+export function initBgm() {
+  if (typeof window === 'undefined') return;
+  if (!bgmAudio) {
+    bgmAudio = new Audio();
+    bgmAudio.src = './assets/audio/dungeon_forest.mp3';
+    bgmAudio.loop = true;
+    bgmAudio.preload = 'auto';
+    bgmAudio.volume = isMutedState ? 0 : BGM_VOLUME;
+
+    // Connect to Web Audio graph if available
+    try {
+      if (ctx && !bgmSourceNode) {
+        bgmSourceNode = ctx.createMediaElementSource(bgmAudio);
+        bgmGain = ctx.createGain();
+        bgmGain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
+        bgmSourceNode.connect(bgmGain);
+        bgmGain.connect(masterGain || ctx.destination);
+      }
+    } catch (e) {
+      // Fallback to direct audio element volume control
+      console.warn('MediaElementSource routing skipped, using direct element volume:', e.message);
+    }
+  }
+}
+
+export function playDungeonMusic(mapIndex = 0) {
+  if (typeof window === 'undefined') return;
+  initAudio();
+  initBgm();
+
+  if (mapIndex === 0) {
+    if (!bgmAudio) return;
+
+    if (currentBgmTrack !== 'dungeon_forest') {
+      bgmAudio.src = './assets/audio/dungeon_forest.mp3';
+      bgmAudio.loop = true;
+      currentBgmTrack = 'dungeon_forest';
+    }
+
+    bgmAudio.volume = isMutedState ? 0 : BGM_VOLUME;
+    if (bgmGain && ctx) {
+      bgmGain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
+    }
+
+    if (bgmAudio.paused) {
+      const playPromise = bgmAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Audio play waiting for user gesture:', err.message);
+        });
+      }
+    }
+  } else {
+    // Other dungeons fade out first dungeon's music
+    stopDungeonMusic(1.2);
+  }
+}
+
+export function pauseDungeonMusic() {
+  if (bgmAudio && !bgmAudio.paused) {
+    bgmAudio.pause();
+  }
+}
+
+export function resumeDungeonMusic() {
+  if (bgmAudio && bgmAudio.paused && currentBgmTrack === 'dungeon_forest') {
+    bgmAudio.volume = isMutedState ? 0 : BGM_VOLUME;
+    if (bgmGain && ctx) {
+      bgmGain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
+    }
+    const playPromise = bgmAudio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {});
+    }
+  }
+}
+
+export function stopDungeonMusic(fadeSec = 0.5) {
+  if (!bgmAudio || bgmAudio.paused) return;
+
+  if (fadeSec > 0) {
+    const startVol = bgmAudio.volume;
+    const steps = 12;
+    const stepTime = (fadeSec * 1000) / steps;
+    let step = 0;
+
+    clearInterval(bgmFadeTimer);
+    bgmFadeTimer = setInterval(() => {
+      step++;
+      const factor = Math.max(0, 1 - step / steps);
+      if (bgmAudio) bgmAudio.volume = startVol * factor;
+      if (bgmGain && ctx) {
+        bgmGain.gain.setValueAtTime(BGM_VOLUME * factor, ctx.currentTime);
+      }
+      if (step >= steps) {
+        clearInterval(bgmFadeTimer);
+        if (bgmAudio) {
+          bgmAudio.pause();
+          bgmAudio.currentTime = 0;
+          bgmAudio.volume = isMutedState ? 0 : BGM_VOLUME;
+        }
+        currentBgmTrack = null;
+      }
+    }, stepTime);
+  } else {
+    bgmAudio.pause();
+    bgmAudio.currentTime = 0;
+    currentBgmTrack = null;
+  }
+}
+
+export function updateBgmVolume() {
+  if (bgmAudio) {
+    bgmAudio.volume = isMutedState ? 0 : BGM_VOLUME;
+  }
+  if (bgmGain && ctx) {
+    bgmGain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
+  }
+}
+

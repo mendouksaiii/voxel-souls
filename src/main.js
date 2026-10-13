@@ -745,6 +745,7 @@ function enterRealmPortal() {
   const nextMap = MAPS[nextMapIndex];
 
   Audio.playPortalWarp();
+  if (nextMapIndex > 0) Audio.stopDungeonMusic(1.2);
   G.shakeMag = 1.6;
 
   if (dom.powerupFlash) {
@@ -788,6 +789,7 @@ function enterRealmPortal() {
 
 function showVictoryScreen() {
   G.mode = 'over';
+  Audio.stopDungeonMusic(0.8);
   Audio.playVictory();
   removeRealmPortal();
 
@@ -2508,6 +2510,8 @@ function startWave(n) {
     player.pos.set(0, 0, 0);
   }
 
+  Audio.playDungeonMusic(spec.mapIndex);
+
   if (dom.wavesub) dom.wavesub.textContent = `${MAPS[spec.mapIndex].name} · ${MAPS[spec.mapIndex].subtitle}`;
 
   const slayerTag = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
@@ -3672,11 +3676,13 @@ function startRun(cls) {
   if (dom.victorymodal) dom.victorymodal.classList.remove('show');
   const gm = $('guidemodal'); if (gm) gm.classList.remove('show');
   const hoc = $('hall-of-champions-modal'); if (hoc) hoc.classList.remove('show');
+  Audio.playDungeonMusic(0);
   startWave(1);
 }
 
 function gameOver() {
   G.mode = 'over';
+  Audio.stopDungeonMusic(1.5);
   removeRealmPortal();
 
   let titans = 0;
@@ -3748,13 +3754,18 @@ function gameOver() {
 function togglePause() {
   if (G.mode === 'playing') {
     G.mode = 'paused';
+    Audio.pauseDungeonMusic();
     dom.pause.classList.add('show');
     const pName = $('pause-slayer-name');
     if (pName) pName.textContent = (G.playerName || getSavedName() || 'SOVEREIGN').toUpperCase();
     const pMeta = $('pause-slayer-meta');
     if (pMeta) pMeta.textContent = `WAVE ${G.wave} · ${(G.selectedClass || G.class || 'knight').toUpperCase()} · ${G.kills} FOES SLAIN`;
   }
-  else if (G.mode === 'paused') { G.mode = 'playing'; dom.pause.classList.remove('show'); }
+  else if (G.mode === 'paused') {
+    G.mode = 'playing';
+    dom.pause.classList.remove('show');
+    if (G.mapIndex === 0) Audio.resumeDungeonMusic();
+  }
 }
 function bindUI() {
   $('startbtn').onclick = () => { Audio.initAudio(); startRun(G.selectedClass || 'knight'); };
