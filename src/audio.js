@@ -444,13 +444,30 @@ const DUNGEON_TRACKS = {
     path: './assets/audio/dungeon_inferno.mp3',
     audio: null,
   },
+  2: {
+    id: 'dungeon_void',
+    name: 'The Abyssal Void',
+    path: './assets/audio/dungeon_void.mp3',
+    audio: null,
+  },
 };
+
+// Continuous looped soundtrack for character selection and game homescreen
+const HOMESCREEN_TRACK = {
+  id: 'bgm_homescreen',
+  name: 'Sanctuary of Champions',
+  path: './assets/audio/bgm_homescreen.mp3',
+  audio: null,
+};
+
+let isHomescreenPlaying = false;
+let homescreenFadeTimer = null;
 
 export function initBgm() {
   if (typeof window === 'undefined') return;
 
   // Pre-initialize and preload available dungeon audio tracks with native hardware playback
-  for (const idx of [0, 1]) {
+  for (const idx of [0, 1, 2]) {
     const track = DUNGEON_TRACKS[idx];
     if (track && !track.audio) {
       track.audio = new Audio();
@@ -461,6 +478,91 @@ export function initBgm() {
       track.audio.volume = isMutedState ? 0 : BGM_VOLUME;
     }
   }
+
+  // Pre-initialize and preload homescreen audio track
+  if (!HOMESCREEN_TRACK.audio) {
+    HOMESCREEN_TRACK.audio = new Audio();
+    HOMESCREEN_TRACK.audio.src = HOMESCREEN_TRACK.path;
+    HOMESCREEN_TRACK.audio.loop = true;
+    HOMESCREEN_TRACK.audio.preload = 'auto';
+    HOMESCREEN_TRACK.audio.crossOrigin = 'anonymous';
+    HOMESCREEN_TRACK.audio.volume = isMutedState ? 0 : BGM_VOLUME;
+  }
+}
+
+export function playHomescreenMusic() {
+  if (typeof window === 'undefined') return;
+  initAudio();
+  initBgm();
+
+  // Stop any active dungeon music cleanly
+  stopDungeonMusic(0.3);
+
+  if (homescreenFadeTimer) {
+    clearInterval(homescreenFadeTimer);
+    homescreenFadeTimer = null;
+  }
+
+  const track = HOMESCREEN_TRACK;
+  if (!track || !track.audio) return;
+
+  track.audio.loop = true;
+  track.audio.volume = isMutedState ? 0 : BGM_VOLUME;
+
+  if (track.audio.paused) {
+    const playPromise = track.audio.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        isHomescreenPlaying = true;
+      }).catch((err) => {
+        console.warn('Homescreen music auto-play waiting for user interaction:', err.message);
+      });
+    }
+  } else {
+    isHomescreenPlaying = true;
+  }
+}
+
+export function stopHomescreenMusic(fadeSec = 0.5) {
+  const track = HOMESCREEN_TRACK;
+  if (!track || !track.audio || track.audio.paused) {
+    isHomescreenPlaying = false;
+    return;
+  }
+
+  if (homescreenFadeTimer) {
+    clearInterval(homescreenFadeTimer);
+    homescreenFadeTimer = null;
+  }
+
+  if (fadeSec > 0) {
+    const startVol = track.audio.volume || BGM_VOLUME;
+    const steps = 10;
+    const stepTime = (fadeSec * 1000) / steps;
+    let step = 0;
+
+    homescreenFadeTimer = setInterval(() => {
+      step++;
+      const factor = Math.max(0, 1 - step / steps);
+      if (track.audio) {
+        track.audio.volume = isMutedState ? 0 : (startVol * factor);
+      }
+      if (step >= steps) {
+        clearInterval(homescreenFadeTimer);
+        homescreenFadeTimer = null;
+        if (track.audio) {
+          track.audio.pause();
+          track.audio.currentTime = 0;
+          track.audio.volume = isMutedState ? 0 : BGM_VOLUME;
+        }
+        isHomescreenPlaying = false;
+      }
+    }, stepTime);
+  } else {
+    track.audio.pause();
+    track.audio.currentTime = 0;
+    isHomescreenPlaying = false;
+  }
 }
 
 export function playDungeonMusic(mapIndex = 0) {
@@ -468,7 +570,10 @@ export function playDungeonMusic(mapIndex = 0) {
   initAudio();
   initBgm();
 
-  // If entering a dungeon without an assigned soundtrack (e.g. Dungeon 3: Void), fade out previous track cleanly
+  // Stop homescreen music when transitioning into dungeon
+  stopHomescreenMusic(0.4);
+
+  // If entering a dungeon without an assigned soundtrack, fade out previous track cleanly
   if (!(mapIndex in DUNGEON_TRACKS)) {
     stopDungeonMusic(1.0);
     return;
@@ -598,6 +703,9 @@ export function updateBgmVolume() {
     if (track && track.audio) {
       track.audio.volume = isMutedState ? 0 : BGM_VOLUME;
     }
+  }
+  if (HOMESCREEN_TRACK.audio) {
+    HOMESCREEN_TRACK.audio.volume = isMutedState ? 0 : BGM_VOLUME;
   }
 }
 

@@ -137,6 +137,7 @@ function init() {
 
   dom.loader.style.display = 'none';
   dom.menu.classList.add('show');
+  Audio.playHomescreenMusic();
   renderer.setAnimationLoop(frame);
 }
 
@@ -927,11 +928,11 @@ function bindInput() {
 }
 
 function initTouchControls() {
-  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.matchMedia('(pointer: coarse)').matches;
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.matchMedia('(pointer: coarse)').matches || (window.innerWidth <= 1024);
   if (isTouch) document.body.classList.add('touch-device');
 
   const dashIcon = $('tb-icon-dash');
-  if (dashIcon) dashIcon.innerHTML = getIcon('zap', 22);
+  if (dashIcon) dashIcon.innerHTML = getIcon('zap', 24);
   const portalIcon = $('tb-icon-portal');
   if (portalIcon) portalIcon.innerHTML = getIcon('portal', 18);
   const mobPause = $('mobile-pause-btn');
@@ -940,47 +941,75 @@ function initTouchControls() {
     mobPause.onclick = () => togglePause();
   }
 
-  // 1. Dynamic Floating Invisible Cursor Locomotion Engine
-  const touchSurface = $('touch-surface');
-  const floatingCursor = $('touch-floating-cursor');
-  const tfcGem = $('tfc-gem');
-  const tfcLine = $('tfc-line');
-  let cursorTouchId = null;
-  let cursorOrigin = { x: 0, y: 0 };
-  const maxR = 52;
-
-  function onCursorStart(e) {
-    if (G.mode !== 'playing') return;
-    if (cursorTouchId !== null) return;
-    const t = e.changedTouches ? e.changedTouches[0] : e;
-    cursorTouchId = t.identifier !== undefined ? t.identifier : 'mouse';
-    cursorOrigin = { x: t.clientX, y: t.clientY };
-
-    if (floatingCursor) {
-      floatingCursor.style.left = `${cursorOrigin.x}px`;
-      floatingCursor.style.top = `${cursorOrigin.y}px`;
-      floatingCursor.classList.remove('touch-cursor-hidden');
+  // Populate initial special ability icons if specials are configured
+  ['q', 'e', 'r'].forEach((k, idx) => {
+    const iconEl = $(`tb-icon-${k}`);
+    if (iconEl && G.specials && G.specials[idx]) {
+      iconEl.innerHTML = getIcon(G.specials[idx].icon, 20);
     }
+  });
+
+  // 1. High-Precision Responsive Virtual Joystick (Left Hand)
+  const joystickZone = $('touch-joystick-zone');
+  const joystickBase = $('touch-joystick-base');
+  const joystickKnob = $('touch-joystick-knob');
+
+  let joystickTouchId = null;
+  let joyOrigin = { x: 0, y: 0 };
+  const maxR = 48; // Max radius in pixels for knob deflection
+
+  function getBaseCenter() {
+    if (!joystickBase) return { x: 96, y: window.innerHeight - 96 };
+    const rect = joystickBase.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
   }
 
-  function onCursorMove(cx, cy) {
-    const dx = cx - cursorOrigin.x;
-    const dy = cy - cursorOrigin.y;
+  function handleJoyStart(clientX, clientY, identifier) {
+    if (G.mode !== 'playing') return;
+    if (joystickTouchId !== null) return;
+    joystickTouchId = identifier;
+
+    const center = getBaseCenter();
+    const distFromCenter = Math.hypot(clientX - center.x, clientY - center.y);
+
+    if (distFromCenter < 110) {
+      // Touch is close enough to existing base, anchor origin to center of base
+      joyOrigin = { x: center.x, y: center.y };
+    } else {
+      // Reposition base dynamically directly under thumb for effortless reach
+      if (joystickBase) {
+        joystickBase.style.left = `${clientX - 68}px`;
+        joystickBase.style.bottom = 'auto';
+        joystickBase.style.top = `${clientY - 68}px`;
+      }
+      joyOrigin = { x: clientX, y: clientY };
+    }
+
+    handleJoyMove(clientX, clientY);
+  }
+
+  function handleJoyMove(clientX, clientY) {
+    const dx = clientX - joyOrigin.x;
+    const dy = clientY - joyOrigin.y;
     const dist = Math.hypot(dx, dy);
 
-    // Dynamic origin following if thumb sweeps beyond radius * 1.5
+    // If thumb drags far beyond radius * 1.5, dynamically slide the base to follow thumb
     if (dist > maxR * 1.5) {
-      const angle = Math.atan2(dy, dx);
-      cursorOrigin.x = cx - Math.cos(angle) * (maxR * 1.5);
-      cursorOrigin.y = cy - Math.sin(angle) * (maxR * 1.5);
-      if (floatingCursor) {
-        floatingCursor.style.left = `${cursorOrigin.x}px`;
-        floatingCursor.style.top = `${cursorOrigin.y}px`;
+      const a = Math.atan2(dy, dx);
+      joyOrigin.x = clientX - Math.cos(a) * (maxR * 1.5);
+      joyOrigin.y = clientY - Math.sin(a) * (maxR * 1.5);
+      if (joystickBase) {
+        joystickBase.style.left = `${joyOrigin.x - 68}px`;
+        joystickBase.style.bottom = 'auto';
+        joystickBase.style.top = `${joyOrigin.y - 68}px`;
       }
     }
 
-    const currentDx = cx - cursorOrigin.x;
-    const currentDy = cy - cursorOrigin.y;
+    const currentDx = clientX - joyOrigin.x;
+    const currentDy = clientY - joyOrigin.y;
     const currentDist = Math.hypot(currentDx, currentDy);
     const clampedDist = Math.min(currentDist, maxR);
     const angle = Math.atan2(currentDy, currentDx);
@@ -988,88 +1017,116 @@ function initTouchControls() {
     const kx = Math.cos(angle) * clampedDist;
     const ky = Math.sin(angle) * clampedDist;
 
-    if (tfcGem) tfcGem.style.transform = `translate(${kx}px, ${ky}px)`;
-    if (tfcLine) {
-      tfcLine.style.width = `${clampedDist}px`;
-      tfcLine.style.transform = `rotate(${angle * (180 / Math.PI)}deg)`;
+    if (joystickKnob) {
+      joystickKnob.style.transform = `translate(${kx}px, ${ky}px)`;
     }
 
-    // Deadzone filter and parabolic acceleration for precision one-handed steering
+    // Deadzone and exponential response curve for steering
     if (clampedDist < 6) {
       touchAxis.x = 0;
       touchAxis.z = 0;
     } else {
       const norm = (clampedDist - 6) / (maxR - 6);
-      const power = Math.pow(norm, 1.15);
+      const power = Math.pow(norm, 1.1);
       touchAxis.x = Math.cos(angle) * power;
       touchAxis.z = Math.sin(angle) * power;
     }
   }
 
-  function onCursorEnd() {
-    cursorTouchId = null;
+  function handleJoyEnd() {
+    joystickTouchId = null;
     touchAxis.x = 0;
     touchAxis.z = 0;
-    if (floatingCursor) {
-      floatingCursor.classList.add('touch-cursor-hidden');
+    if (joystickKnob) {
+      joystickKnob.style.transform = 'translate(0px, 0px)';
     }
-    if (tfcGem) tfcGem.style.transform = 'translate(0px, 0px)';
-    if (tfcLine) tfcLine.style.width = '0px';
+    if (joystickBase) {
+      joystickBase.style.left = '';
+      joystickBase.style.top = '';
+      joystickBase.style.bottom = '';
+    }
   }
 
-  if (touchSurface) {
-    touchSurface.addEventListener('touchstart', (e) => {
+  if (joystickZone) {
+    joystickZone.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      onCursorStart(e);
+      const t = e.changedTouches[0];
+      handleJoyStart(t.clientX, t.clientY, t.identifier);
     }, { passive: false });
 
-    touchSurface.addEventListener('touchmove', (e) => {
+    joystickZone.addEventListener('touchmove', (e) => {
       e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        if (t.identifier === cursorTouchId) {
-          onCursorMove(t.clientX, t.clientY);
+        if (t.identifier === joystickTouchId) {
+          handleJoyMove(t.clientX, t.clientY);
           break;
         }
       }
     }, { passive: false });
 
-    const endCursor = (e) => {
+    const onJoyEnd = (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === cursorTouchId) {
-          onCursorEnd();
+        if (e.changedTouches[i].identifier === joystickTouchId) {
+          handleJoyEnd();
           break;
         }
       }
     };
-    touchSurface.addEventListener('touchend', endCursor, { passive: false });
-    touchSurface.addEventListener('touchcancel', endCursor, { passive: false });
+    joystickZone.addEventListener('touchend', onJoyEnd, { passive: false });
+    joystickZone.addEventListener('touchcancel', onJoyEnd, { passive: false });
+
+    // Pointer events for desktop testing and mouse/stylus emulation
+    joystickZone.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      handleJoyStart(e.clientX, e.clientY, e.pointerId);
+      const onMove = (pe) => {
+        if (pe.pointerId === joystickTouchId) handleJoyMove(pe.clientX, pe.clientY);
+      };
+      const onUp = (pe) => {
+        if (pe.pointerId === joystickTouchId) {
+          handleJoyEnd();
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          window.removeEventListener('pointercancel', onUp);
+        }
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    });
+  }
+
+  // Helper for responsive multi-event button binding with debounce
+  function bindTouchAction(el, fn) {
+    if (!el) return;
+    let lastExec = 0;
+    const exec = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const now = performance.now();
+      if (now - lastExec < 80) return; // Debounce multi-events (pointerdown + touchstart + click)
+      lastExec = now;
+      fn();
+    };
+    el.addEventListener('pointerdown', exec, { passive: false });
+    el.addEventListener('touchstart', exec, { passive: false });
+    el.addEventListener('click', exec);
   }
 
   // 2. Dash Button
   const dashBtn = $('touch-dash-btn');
-  if (dashBtn) {
-    dashBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      triggerDash();
-    }, { passive: false });
-    dashBtn.addEventListener('click', () => triggerDash());
-  }
+  bindTouchAction(dashBtn, () => triggerDash());
 
-  // 3. Specials (Q, E, R) with Auto-Aim & Tactile Feedback
+  // 3. Specials (Q, E, R) with Tactile Feedback
   ['q', 'e', 'r'].forEach((k, idx) => {
     const btn = $(`touch-btn-${k}`);
-    if (btn) {
-      btn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        if (navigator.vibrate) try { navigator.vibrate(25); } catch(err){}
-        useSpecial(idx);
-      }, { passive: false });
-      btn.addEventListener('click', () => {
-        if (navigator.vibrate) try { navigator.vibrate(25); } catch(err){}
-        useSpecial(idx);
-      });
-    }
+    bindTouchAction(btn, () => {
+      if (navigator.vibrate) try { navigator.vibrate(25); } catch(err){}
+      useSpecial(idx);
+    });
   });
 
   // 4. One-Handed Layout Handedness Toggle (Left / Right Hand)
@@ -1098,24 +1155,17 @@ function initTouchControls() {
   applyHandMode(currentHandMode);
 
   if (handToggle) {
-    handToggle.onclick = (e) => {
-      e.stopPropagation();
+    bindTouchAction(handToggle, () => {
       applyHandMode(currentHandMode === 'right' ? 'left' : 'right');
       Audio.playGem();
-    };
+    });
   }
 
   // 5. Portal Descent Button
   const portalBtn = $('touch-portal-btn');
-  if (portalBtn) {
-    portalBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      if (realmPortal && realmPortal.active) enterRealmPortal();
-    }, { passive: false });
-    portalBtn.addEventListener('click', () => {
-      if (realmPortal && realmPortal.active) enterRealmPortal();
-    });
-  }
+  bindTouchAction(portalBtn, () => {
+    if (realmPortal && realmPortal.active) enterRealmPortal();
+  });
 }
 
 function axis() {
@@ -3785,7 +3835,15 @@ function startRun(cls) {
   if (dom.victorymodal) dom.victorymodal.classList.remove('show');
   const gm = $('guidemodal'); if (gm) gm.classList.remove('show');
   const hoc = $('hall-of-champions-modal'); if (hoc) hoc.classList.remove('show');
+  
+  Audio.stopHomescreenMusic(0.4);
   Audio.playDungeonMusic(0);
+
+  // Activate in-game mobile HUD controls
+  document.body.classList.add('in-game');
+  const touchCtrl = $('touch-controls');
+  if (touchCtrl) touchCtrl.classList.remove('touch-hidden');
+
   startWave(1);
 }
 
@@ -3793,6 +3851,13 @@ function gameOver() {
   G.mode = 'over';
   Audio.stopDungeonMusic(1.5);
   removeRealmPortal();
+
+  // Deactivate in-game mobile HUD controls
+  document.body.classList.remove('in-game');
+  const touchCtrl = $('touch-controls');
+  if (touchCtrl) touchCtrl.classList.add('touch-hidden');
+  touchAxis.x = 0;
+  touchAxis.z = 0;
 
   let titans = 0;
   if (G.wave > 30) titans = 3;
@@ -3914,7 +3979,14 @@ function bindUI() {
       dom.victorymodal.classList.remove('show');
       G.mode = 'menu';
       dom.menu.classList.add('show');
+      document.body.classList.remove('in-game');
+      const touchCtrl = $('touch-controls');
+      if (touchCtrl) touchCtrl.classList.add('touch-hidden');
+      touchAxis.x = 0;
+      touchAxis.z = 0;
       createPlayer(G.selectedClass || 'knight');
+      Audio.stopDungeonMusic(0.5);
+      Audio.playHomescreenMusic();
     };
   }
 
@@ -3935,11 +4007,16 @@ function bindUI() {
   // User gesture listener to unlock Web Audio context safely
   const unlockAudio = () => {
     Audio.initAudio();
+    if (G.mode === 'menu') {
+      Audio.playHomescreenMusic();
+    }
     removeEventListener('pointerdown', unlockAudio);
     removeEventListener('keydown', unlockAudio);
+    removeEventListener('touchstart', unlockAudio);
   };
   addEventListener('pointerdown', unlockAudio);
   addEventListener('keydown', unlockAudio);
+  addEventListener('touchstart', unlockAudio);
 }
 
 function initHomeUI() {

@@ -1530,115 +1530,162 @@
     #minimap { width: 72px; height: 72px; }
   }
 
-  /* 4. INVISIBLE CURSOR & VIRTUAL TOUCH ENGINE (MOBILE ONE-HANDED OPTIMIZATION) */
+  /* 4. VISIBLE VIRTUAL JOYSTICK & ACTION PAD (MOBILE OPTIMIZATION) */
   #touch-controls {
-    position: absolute;
+    position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 45;
+    z-index: 50;
     display: none;
   }
+
+  /* Show controls on touch devices, coarse pointers, or mobile screens */
   body.touch-device #touch-controls,
+  body.in-game #touch-controls {
+    display: block;
+  }
+  @media (max-width: 1024px) {
+    #touch-controls { display: block; }
+  }
   @media (pointer: coarse) {
     #touch-controls { display: block; }
   }
 
-  /* Full-Screen Gesture Surface for Dynamic Invisible Cursor */
-  #touch-surface {
+  /* Automatically hide touch controls when any menu or modal overlay is active */
+  #touch-controls.touch-hidden,
+  body:has(#menu.show) #touch-controls,
+  body:has(#gameover.show) #touch-controls,
+  body:has(#victorymodal.show) #touch-controls,
+  body:has(#pause.show) #touch-controls,
+  body:has(#classselect.show) #touch-controls,
+  body:has(#guidemodal.show) #touch-controls,
+  body:has(#hall-of-champions-modal.show) #touch-controls {
+    display: none !important;
+  }
+
+  /* Left Hand Virtual Joystick Zone */
+  #touch-joystick-zone {
     position: absolute;
-    inset: 0;
-    pointer-events: auto;
+    left: 0;
+    bottom: 0;
+    width: 48vw;
+    height: 70vh;
+    pointer-events: auto !important;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
-    z-index: 40;
+    z-index: 52;
+  }
+  #touch-action-pad.hand-mode-left ~ #touch-joystick-zone {
+    left: auto;
+    right: 0;
   }
 
-  /* Floating Dynamic Invisible Cursor Reticle (Spawns under thumb anywhere on screen) */
-  #touch-floating-cursor {
+  /* Glowing Cyber-Fantasy Joystick Base */
+  #touch-joystick-base {
     position: absolute;
-    width: 104px;
-    height: 104px;
-    margin-left: -52px;
-    margin-top: -52px;
-    pointer-events: none;
-    z-index: 48;
-    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
-  }
-  #touch-floating-cursor.touch-cursor-hidden {
-    opacity: 0;
-    transform: scale(0.65);
-  }
-  .tfc-outer-rune {
-    position: absolute;
-    inset: 0;
+    left: 28px;
+    bottom: 28px;
+    width: 136px;
+    height: 136px;
     border-radius: 50%;
-    border: 2px dashed rgba(255, 210, 74, 0.5);
-    background: radial-gradient(circle, rgba(255, 210, 74, 0.08) 0%, rgba(15, 23, 42, 0.45) 80%);
-    box-shadow: 0 0 20px rgba(255, 210, 74, 0.3), inset 0 0 12px rgba(255, 210, 74, 0.18);
-    animation: tfcSpin 14s linear infinite;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.1) 0%, rgba(15, 23, 42, 0.72) 65%, rgba(15, 23, 42, 0.95) 100%);
+    border: 2px solid rgba(56, 189, 248, 0.55);
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.35), inset 0 0 16px rgba(56, 189, 248, 0.2);
+    pointer-events: none;
+    touch-action: none;
+    transition: transform 0.08s ease, border-color 0.15s ease;
   }
-  @keyframes tfcSpin {
+  #touch-action-pad.hand-mode-left ~ #touch-joystick-zone #touch-joystick-base {
+    left: auto;
+    right: 28px;
+  }
+  .tj-ring {
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(255, 210, 74, 0.35);
+    pointer-events: none;
+    animation: tjRingSpin 24s linear infinite;
+  }
+  @keyframes tjRingSpin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
-  .tfc-inner-gem {
+  .tj-mark {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ffd24a;
+    box-shadow: 0 0 6px #ffd24a;
+    pointer-events: none;
+  }
+  .tj-n { top: 4px; left: 50%; transform: translateX(-50%); }
+  .tj-s { bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .tj-w { left: 4px; top: 50%; transform: translateY(-50%); }
+  .tj-e { right: 4px; top: 50%; transform: translateY(-50%); }
+
+  /* Tactile Joystick Thumb Knob */
+  #touch-joystick-knob {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 34px;
-    height: 34px;
-    margin-left: -17px;
-    margin-top: -17px;
+    width: 54px;
+    height: 54px;
+    margin-left: -27px;
+    margin-top: -27px;
     border-radius: 50%;
-    background: radial-gradient(circle, #fde047 0%, #ca8a04 65%, #854d0e 100%);
-    border: 2px solid #ffffff;
-    box-shadow: 0 0 14px rgba(253, 224, 71, 0.8), 0 3px 8px rgba(0,0,0,0.7);
+    background: radial-gradient(circle, #38bdf8 0%, #0284c7 60%, #0369a1 100%);
+    border: 2.5px solid #ffffff;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.8), 0 4px 12px rgba(0,0,0,0.7);
     pointer-events: none;
+    touch-action: none;
     transition: transform 0.04s ease-out;
   }
-  .tfc-vector-line {
+  .tj-knob-core {
     position: absolute;
-    left: 52px;
-    top: 52px;
-    height: 2px;
-    width: 0;
-    background: linear-gradient(90deg, rgba(255, 210, 74, 0.85), rgba(56, 189, 248, 0.95));
-    transform-origin: 0 50%;
-    pointer-events: none;
-    opacity: 0.8;
+    left: 50%;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    margin-top: -8px;
+    border-radius: 50%;
+    background: #ffd24a;
+    box-shadow: 0 0 10px #ffd24a;
   }
 
-  /* Ergonomic Thumb Action Pad (Right / Left Handed Mode) */
+  /* Ergonomic Thumb Action Pad (Right Hand by default) */
   #touch-action-pad {
     position: absolute;
-    right: 12px;
-    bottom: 12px;
-    width: 200px;
-    height: 200px;
-    pointer-events: auto;
+    right: 18px;
+    bottom: 18px;
+    width: 220px;
+    height: 220px;
+    pointer-events: auto !important;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
-    z-index: 46;
+    z-index: 55;
     transition: right 0.25s ease, left 0.25s ease;
   }
   #touch-action-pad.hand-mode-left {
     right: auto;
-    left: 12px;
+    left: 18px;
   }
 
-  /* Big Phantom Dash Button (Primary Thumb Target) */
+  /* Big Phantom Dash Button (Primary Thumb Anchor) */
   .touch-btn-dash {
     position: absolute;
-    right: 4px;
-    bottom: 4px;
-    width: 72px;
-    height: 72px;
+    right: 6px;
+    bottom: 6px;
+    width: 76px;
+    height: 76px;
     border-radius: 50%;
-    background: radial-gradient(circle, #0284c7 0%, #0369a1 70%, #075985 100%);
+    background: radial-gradient(circle, #0284c7 0%, #0369a1 65%, #075985 100%);
     border: 2.5px solid #7dd3fc;
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.6), 0 6px 14px rgba(0,0,0,0.6);
+    box-shadow: 0 0 22px rgba(56, 189, 248, 0.7), 0 6px 14px rgba(0,0,0,0.6);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1647,39 +1694,42 @@
     cursor: pointer;
     touch-action: manipulation;
     overflow: hidden;
+    pointer-events: auto !important;
+    z-index: 56;
     transition: transform 0.08s ease, filter 0.15s ease;
   }
   #touch-action-pad.hand-mode-left .touch-btn-dash {
     right: auto;
-    left: 4px;
+    left: 6px;
   }
   .touch-btn-dash:active {
     transform: scale(0.92);
     filter: brightness(1.25);
   }
   .touch-btn-dash .tb-icon {
-    font-size: 20px;
+    font-size: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
+    line-height: 1;
   }
   .touch-btn-dash .tb-label {
     font-size: 8px;
     font-weight: 800;
     letter-spacing: 1px;
-    margin-top: 1px;
+    margin-top: 2px;
     font-family: var(--font-display);
+    color: #e0f2fe;
+    text-shadow: 0 0 6px rgba(56, 189, 248, 0.8);
   }
 
-  /* Ergonomic Ability Radial Fan */
+  /* Special Ability Buttons Arc (Q, E, R) */
   .touch-btn-skill {
     position: absolute;
-    width: 50px;
-    height: 50px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+    background: radial-gradient(circle, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
     border: 2px solid #ffd24a;
-    box-shadow: 0 0 14px rgba(255, 210, 74, 0.25), 0 4px 10px rgba(0,0,0,0.6);
+    box-shadow: 0 0 16px rgba(255, 210, 74, 0.35), 0 4px 10px rgba(0,0,0,0.6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1687,40 +1737,47 @@
     cursor: pointer;
     touch-action: manipulation;
     overflow: hidden;
-    transition: transform 0.08s ease;
+    pointer-events: auto !important;
+    z-index: 56;
+    transition: transform 0.08s ease, filter 0.15s ease;
   }
   .touch-btn-skill:active {
     transform: scale(0.92);
+    filter: brightness(1.3);
   }
 
   /* Radial Placement Around Dash */
   #touch-btn-q {
-    right: 92px;
-    bottom: 4px;
+    right: 100px;
+    bottom: 6px;
+    width: 54px;
+    height: 54px;
   }
   #touch-action-pad.hand-mode-left #touch-btn-q {
     right: auto;
-    left: 92px;
+    left: 100px;
   }
 
   #touch-btn-e {
-    right: 80px;
-    bottom: 74px;
+    right: 88px;
+    bottom: 84px;
+    width: 54px;
+    height: 54px;
   }
   #touch-action-pad.hand-mode-left #touch-btn-e {
     right: auto;
-    left: 80px;
+    left: 88px;
   }
 
   #touch-btn-r {
     right: 6px;
-    bottom: 94px;
-    width: 56px;
-    height: 56px;
-    border-color: #f43f5e;
+    bottom: 102px;
+    width: 62px;
+    height: 62px;
+    border: 2.5px solid #f43f5e;
     color: #f43f5e;
-    box-shadow: 0 0 18px rgba(244, 63, 94, 0.45);
-    background: radial-gradient(circle, rgba(60, 20, 30, 0.95) 0%, rgba(20, 10, 15, 0.95) 100%);
+    box-shadow: 0 0 22px rgba(244, 63, 94, 0.55), 0 4px 12px rgba(0,0,0,0.6);
+    background: radial-gradient(circle, rgba(80, 20, 30, 0.95) 0%, rgba(20, 10, 15, 0.98) 100%);
   }
   #touch-action-pad.hand-mode-left #touch-btn-r {
     right: auto;
@@ -1729,22 +1786,26 @@
 
   .tb-badge {
     position: absolute;
-    top: 3px;
-    right: 5px;
+    top: 4px;
+    right: 6px;
     font-size: 8px;
     font-weight: 800;
     color: #fff;
-    opacity: 0.85;
+    opacity: 0.9;
     font-family: var(--font-display);
     pointer-events: none;
+    line-height: 1;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
   }
   .tb-badge.ult {
     color: #f43f5e;
+    font-size: 9px;
+    font-weight: 900;
   }
   .touch-cd-fill {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.78);
     height: 0%;
     pointer-events: none;
     transition: height 0.08s linear;
@@ -1753,17 +1814,17 @@
   /* Handedness Toggle Button */
   .touch-pill-btn {
     position: absolute;
-    right: 4px;
-    bottom: 164px;
-    height: 28px;
+    right: 6px;
+    bottom: 180px;
+    height: 26px;
     padding: 0 10px;
-    border-radius: 14px;
-    background: rgba(15, 23, 42, 0.88);
-    border: 1px solid rgba(255, 210, 74, 0.4);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    border-radius: 13px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(255, 210, 74, 0.45);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.6);
     color: #ffd24a;
     font-family: var(--font-display);
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 800;
     display: flex;
     align-items: center;
@@ -1771,11 +1832,13 @@
     cursor: pointer;
     touch-action: manipulation;
     backdrop-filter: blur(8px);
+    pointer-events: auto !important;
+    z-index: 56;
     transition: all 0.15s ease;
   }
   #touch-action-pad.hand-mode-left .touch-pill-btn {
     right: auto;
-    left: 4px;
+    left: 6px;
   }
   .touch-pill-btn:active {
     transform: scale(0.92);
@@ -1784,28 +1847,30 @@
   /* Contextual Portal Descent Button */
   #touch-portal-btn {
     position: absolute;
-    right: 4px;
-    bottom: 198px;
-    height: 40px;
+    right: 6px;
+    bottom: 216px;
+    height: 38px;
     padding: 0 16px;
-    border-radius: 20px;
+    border-radius: 19px;
     background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     border: 2px solid #fef08a;
-    box-shadow: 0 0 24px rgba(245, 158, 11, 0.7), 0 4px 12px rgba(0,0,0,0.6);
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.8), 0 4px 12px rgba(0,0,0,0.6);
     display: none;
     align-items: center;
     gap: 6px;
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: 11px;
+    font-size: 10px;
     color: #0b0d12;
     cursor: pointer;
     touch-action: manipulation;
+    pointer-events: auto !important;
+    z-index: 56;
     animation: portalPulse 1.4s infinite alternate;
   }
   #touch-action-pad.hand-mode-left #touch-portal-btn {
     right: auto;
-    left: 4px;
+    left: 6px;
   }
   #touch-portal-btn.show {
     display: flex;
@@ -2686,19 +2751,23 @@
       <div class="wp-key">[ E / WALK IN ]</div>
     </div>
 
-    <!-- Mobile Virtual Touch Controls & Invisible Cursor Engine -->
-    <div id="touch-controls">
-      <!-- Full-screen Dynamic Invisible Cursor Touch Surface -->
-      <div id="touch-surface"></div>
-
-      <!-- Floating Dynamic Invisible Cursor Reticle (Spawns under thumb anywhere on screen) -->
-      <div id="touch-floating-cursor" class="touch-cursor-hidden">
-        <div class="tfc-outer-rune"></div>
-        <div class="tfc-inner-gem" id="tfc-gem"></div>
-        <div class="tfc-vector-line" id="tfc-line"></div>
+    <!-- Mobile Virtual Touch Controls & Joystick Engine -->
+    <div id="touch-controls" class="touch-hidden">
+      <!-- High-Precision Responsive Virtual Joystick (Left Hand) -->
+      <div id="touch-joystick-zone">
+        <div id="touch-joystick-base">
+          <div class="tj-ring"></div>
+          <div class="tj-mark tj-n"></div>
+          <div class="tj-mark tj-s"></div>
+          <div class="tj-mark tj-e"></div>
+          <div class="tj-mark tj-w"></div>
+          <div id="touch-joystick-knob">
+            <div class="tj-knob-core"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Ergonomic One-Handed Thumb Action Pad -->
+      <!-- Ergonomic Thumb Action Pad (Right Hand) -->
       <div id="touch-action-pad" class="hand-mode-right">
         <!-- Floating Contextual Waygate Descent Button -->
         <button id="touch-portal-btn" class="touch-btn" title="Enter Waygate">
