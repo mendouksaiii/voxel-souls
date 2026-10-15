@@ -3852,6 +3852,7 @@ function startRun(cls) {
   if (hsbIcon) hsbIcon.innerHTML = getIcon('user', 13);
 
   dom.menu.classList.remove('show'); dom.gameover.classList.remove('show');
+  if (dom.titleLanding) dom.titleLanding.classList.remove('show');
   dom.pause.classList.remove('show'); dom.classselect.classList.remove('show');
   if (dom.victorymodal) dom.victorymodal.classList.remove('show');
   const gm = $('guidemodal'); if (gm) gm.classList.remove('show');
@@ -4278,13 +4279,13 @@ function goToMenu() {
   if (tlInput) {
     const val = (tlInput.value || '').trim();
     if (val) {
-      savePlayerName(val, G.selectedClass || 'knight');
+      setSavedName(val);
       G.playerName = val;
       const hInput = $('home-player-name-input');
       if (hInput) hInput.value = val;
       const mInput = $('mob-player-name-input');
       if (mInput) mInput.value = val;
-      updateLandingCareerBadge(val);
+      try { updateLandingCareerBadge(val); } catch(e){}
     }
   }
 
@@ -4375,7 +4376,7 @@ function initLandingUI() {
     tlInput.oninput = () => {
       const val = tlInput.value.trim();
       if (val) {
-        savePlayerName(val, G.selectedClass || 'knight');
+        setSavedName(val);
         G.playerName = val;
       }
     };

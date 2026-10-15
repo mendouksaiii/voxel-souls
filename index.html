@@ -230,6 +230,11 @@
   #title-landing.show {
     display: flex;
   }
+  body.in-game #title-landing,
+  body:has(#menu.show) #title-landing {
+    display: none !important;
+    pointer-events: none !important;
+  }
 
   /* 1. TOP GATEWAY HEADER */
   .tl-top-nav {
