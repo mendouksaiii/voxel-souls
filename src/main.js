@@ -25,6 +25,7 @@ const dom = {
   time: $('time'), dps: $('dps'),
   hpfill: $('hpfill'), hplabel: $('hplabel'), xpfill: $('xpfill'),
   dmglayer: $('dmglayer'), hint: $('hint'),
+  titleLanding: $('title-landing'),
   menu: $('menu'), gameover: $('gameover'), gotitle: $('gotitle'), gostats: $('gostats'),
   pause: $('pause'), perkdraft: $('perkdraft'),
   classselect: $('classselect'), classcards: $('classcards'),
@@ -64,7 +65,7 @@ const mobMat = {};      // type -> MeshLambertMaterial
 
 // game state
 const G = {
-  mode: 'menu',          // menu | playing | paused | over
+  mode: 'landing',       // landing | menu | playing | paused | over
   time: 0, wave: 0, kills: 0, mapIndex: 0,
   level: 1, xp: 0, xpNeed: 10,
   spec: null, toSpawn: 0, spawnTimer: 0, boss: null,
@@ -136,7 +137,8 @@ function init() {
   initLeaderboard();
 
   dom.loader.style.display = 'none';
-  dom.menu.classList.add('show');
+  if (dom.titleLanding) dom.titleLanding.classList.add('show');
+  dom.menu.classList.remove('show');
   Audio.playHomescreenMusic();
   renderer.setAnimationLoop(frame);
 }
@@ -906,8 +908,14 @@ function bindInput() {
   addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     keys[k] = true;
-    if (k === ' ') e.preventDefault();
+    if (G.mode === 'landing' && (k === ' ' || k === 'enter')) {
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.tagName === 'INPUT') return;
+      goToMenu();
+    }
     if (G.mode === 'menu' && (k === ' ' || k === 'enter')) {
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.tagName === 'INPUT') return;
       Audio.initAudio();
       startRun(G.selectedClass || 'knight');
     }
@@ -1369,10 +1377,10 @@ function triggerAttack(kind) {
 }
 
 function updateCamera(dt) {
-  if (G.mode === 'menu') {
+  if (G.mode === 'menu' || G.mode === 'landing') {
     // Cinematic AAA Hero Select Framing: intimate eye-level view centered between panels
     const isMobile = window.innerWidth <= 860;
-    const orbitSpeed = 0.16;
+    const orbitSpeed = G.mode === 'landing' ? 0.08 : 0.16;
     const sway = Math.sin(G.time * orbitSpeed) * (isMobile ? 0.35 : 0.75);
     const dist = (isMobile ? 5.6 : 4.8) + Math.cos(G.time * orbitSpeed * 0.5) * 0.2;
     camera.position.x = sway;
@@ -3990,6 +3998,7 @@ function bindUI() {
     };
   }
 
+  initLandingUI();
   initHomeUI();
 
   // Initialize and bind Mute Toggle button
@@ -4007,7 +4016,7 @@ function bindUI() {
   // User gesture listener to unlock Web Audio context safely
   const unlockAudio = () => {
     Audio.initAudio();
-    if (G.mode === 'menu') {
+    if (G.mode === 'landing' || G.mode === 'menu') {
       Audio.playHomescreenMusic();
     }
     removeEventListener('pointerdown', unlockAudio);
@@ -4237,6 +4246,146 @@ function initHomeUI() {
 
   // Populate active champion on initial load
   updateHeroDetailsCard(G.selectedClass || 'knight');
+}
+
+function goToMenu() {
+  G.mode = 'menu';
+  Audio.initAudio();
+  Audio.playGem();
+  Audio.playHomescreenMusic();
+
+  // Sync player name from landing input if entered
+  const tlInput = $('tl-player-name');
+  if (tlInput) {
+    const val = (tlInput.value || '').trim();
+    if (val) {
+      savePlayerName(val, G.selectedClass || 'knight');
+      G.playerName = val;
+      const hInput = $('home-player-name-input');
+      if (hInput) hInput.value = val;
+      const mInput = $('mob-player-name-input');
+      if (mInput) mInput.value = val;
+      updateLandingCareerBadge(val);
+    }
+  }
+
+  if (dom.titleLanding) dom.titleLanding.classList.remove('show');
+  dom.menu.classList.add('show');
+}
+
+function goToLanding() {
+  G.mode = 'landing';
+  Audio.playHomescreenMusic();
+  dom.menu.classList.remove('show');
+  if (dom.titleLanding) dom.titleLanding.classList.add('show');
+  
+  // Sync current player name back to landing input
+  const tlInput = $('tl-player-name');
+  if (tlInput) {
+    tlInput.value = G.playerName || getSavedName(G.selectedClass) || 'Sovereign Slayer';
+  }
+}
+
+function initLandingUI() {
+  const crest = $('tl-crest-icon');
+  if (crest) crest.innerHTML = getIcon('crown', 24);
+  const trophy = $('tl-trophy-icon');
+  if (trophy) trophy.innerHTML = getIcon('trophy', 16);
+  const dossier = $('tl-dossier-icon');
+  if (dossier) dossier.innerHTML = getIcon('dossier', 16);
+  const user = $('tl-user-icon');
+  if (user) user.innerHTML = getIcon('user', 14);
+  const dice = $('tl-dice-icon');
+  if (dice) dice.innerHTML = getIcon('dice', 14);
+  const arrow = $('tl-arrow-icon');
+  if (arrow) arrow.innerHTML = getIcon('arrow', 18);
+  const backIcon = $('menu-back-landing-icon');
+  if (backIcon) backIcon.innerHTML = getIcon('chevron_left', 14);
+  const mobBackIcon = $('mob-back-landing-icon');
+  if (mobBackIcon) mobBackIcon.innerHTML = getIcon('chevron_left', 16);
+
+  // Mute button icon on landing
+  const landingMuteBtn = $('tl-mute-btn');
+  const updateLandingMuteIcon = () => {
+    const soundEl = $('tl-sound-icon');
+    if (soundEl) {
+      soundEl.innerHTML = Audio.isMuted() ? getIcon('sound_off', 16) : getIcon('sound', 16);
+    }
+  };
+  if (landingMuteBtn) {
+    landingMuteBtn.onclick = () => {
+      Audio.toggleMute();
+      updateLandingMuteIcon();
+      if (dom.mutebtn) dom.mutebtn.innerHTML = Audio.isMuted() ? getIcon('sound_off', 16) : getIcon('sound', 16);
+    };
+    updateLandingMuteIcon();
+  }
+
+  // Pre-fill landing name input
+  const tlInput = $('tl-player-name');
+  if (tlInput) {
+    const saved = getSavedName(G.selectedClass || 'knight');
+    tlInput.value = saved || 'Sovereign Slayer';
+    tlInput.oninput = () => {
+      const val = tlInput.value.trim();
+      if (val) {
+        savePlayerName(val, G.selectedClass || 'knight');
+        G.playerName = val;
+      }
+    };
+  }
+
+  // Runic Dice Generator on Landing
+  const diceBtn = $('tl-dice-btn');
+  if (diceBtn) {
+    diceBtn.onclick = () => {
+      const prefixes = ['VALKYR', 'IGNIS', 'AURELIUS', 'KAELEN', 'MORRIGAN', 'DARIUS', 'SERAPH', 'ZEPHYR', 'VORON', 'AZAEL', 'MALAK', 'CYPHER', 'THANATOS', 'SOLARIUS'];
+      const titles = ['THE VOIDBREAKER', 'THE SHADOWSLAYER', 'THE UNBROKEN', 'OF THE CRUCIBLE', 'THE ABYSSAL KNIGHT', 'THE GHOSTBLADE', 'THE SUNSEEKER', 'THE MONARCH BANE', 'THE BLOODSWORN', 'THE ASHEN KING'];
+      const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const t = titles[Math.floor(Math.random() * titles.length)];
+      const generated = `${p} ${t}`;
+      if (tlInput) {
+        tlInput.value = generated;
+        tlInput.dispatchEvent(new Event('input'));
+      }
+      Audio.playGem();
+    };
+  }
+
+  // Enter button
+  const enterBtn = $('tl-enter-btn');
+  if (enterBtn) {
+    enterBtn.onclick = () => goToMenu();
+  }
+
+  // Hall of Champions button
+  const lbBtn = $('tl-leaderboard-btn');
+  if (lbBtn) {
+    lbBtn.onclick = () => openLeaderboardModal('all');
+  }
+
+  // Survival Guide button
+  const guideBtn = $('tl-guide-btn');
+  if (guideBtn) {
+    guideBtn.onclick = () => {
+      const gm = $('guidemodal');
+      if (gm) gm.classList.add('show');
+    };
+  }
+
+  // Return to Title buttons on homepage
+  const backBtn = $('menu-back-landing-btn');
+  if (backBtn) {
+    backBtn.onclick = () => goToLanding();
+  }
+  const brandBtn = $('aaa-brand-btn');
+  if (brandBtn) {
+    brandBtn.onclick = () => goToLanding();
+  }
+  const mobBackBtn = $('mob-back-landing-btn');
+  if (mobBackBtn) {
+    mobBackBtn.onclick = () => goToLanding();
+  }
 }
 
 function updateHeroDetailsCard(cls) {

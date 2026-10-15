@@ -4,6 +4,23 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Voxel Souls: Chronicles of the Abyss</title>
+<meta name="title" content="Voxel Souls: Chronicles of the Abyss" />
+<meta name="description" content="A fast-paced dark fantasy 3D voxel roguelike. Descend into unforgiving realms, master ancient magic, and etch your legend into the Hall of Champions." />
+<meta name="theme-color" content="#ffd24a" />
+
+<!-- Open Graph / Facebook / Discord / WhatsApp / Telegram -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://voxel-souls.vercel.app/" />
+<meta property="og:title" content="VOXEL SOULS: Chronicles of the Abyss" />
+<meta property="og:description" content="A fast-paced dark fantasy 3D voxel roguelike. Slay abyssal hordes, defeat titan monarchs, and claim thy glory in the Hall of Champions." />
+<meta property="og:site_name" content="Voxel Souls" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:url" content="https://voxel-souls.vercel.app/" />
+<meta name="twitter:title" content="VOXEL SOULS: Chronicles of the Abyss" />
+<meta name="twitter:description" content="A fast-paced dark fantasy 3D voxel roguelike. Slay abyssal hordes, defeat titan monarchs, and claim thy glory in the Hall of Champions." />
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
@@ -166,6 +183,438 @@
   #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5;
               box-shadow: inset 0 0 160px 50px rgba(0,0,0,.7); transition: box-shadow .2s ease; }
   #vignette.danger { box-shadow: inset 0 0 220px 80px rgba(239,68,68,.4), inset 0 0 120px 40px rgba(0,0,0,.8); }
+
+  /* ========================================================
+     AAA CINEMATIC TITLE LANDING SCREEN GATEWAY
+     ======================================================== */
+  #title-landing {
+    background: radial-gradient(circle at 50% 38%, rgba(14, 165, 233, 0.08) 0%, rgba(10, 14, 22, 0.65) 45%, rgba(6, 8, 12, 0.96) 88%),
+                linear-gradient(to bottom, rgba(6, 8, 12, 0.88) 0%, rgba(6, 8, 12, 0.25) 30%, rgba(6, 8, 12, 0.95) 100%);
+    padding: 20px 36px;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    backdrop-filter: blur(2px);
+    overflow: hidden;
+    font-family: var(--font-ui);
+    color: #e2e8f0;
+    z-index: 25;
+    position: fixed;
+    inset: 0;
+  }
+  #title-landing.show {
+    display: flex;
+  }
+
+  /* 1. TOP GATEWAY HEADER */
+  .tl-top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 1400px;
+    height: 52px;
+    z-index: 10;
+  }
+  .tl-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .tl-brand-icon {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd24a;
+    filter: drop-shadow(0 0 10px rgba(255, 210, 74, 0.6));
+  }
+  .tl-brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+  }
+  .tl-brand-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ffd24a;
+    line-height: 1;
+  }
+  .tl-brand-sub {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    color: #94a3b8;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .tl-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tl-nav-btn {
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(255, 210, 74, 0.35);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: #ffd24a;
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+  }
+  .tl-nav-btn:hover {
+    border-color: #ffd24a;
+    background: rgba(30, 41, 59, 0.95);
+    box-shadow: 0 0 16px rgba(255, 210, 74, 0.35);
+    transform: translateY(-1px);
+  }
+  .tl-mute-btn {
+    padding: 7px 10px;
+  }
+
+  /* 2. HERO CENTERPIECE */
+  .tl-centerpiece {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    max-width: 860px;
+    width: 100%;
+    margin: auto 0;
+    z-index: 5;
+  }
+
+  /* Decorative Runic Spinning Halo */
+  .tl-rune-ring {
+    position: absolute;
+    width: 440px;
+    height: 440px;
+    left: 50%;
+    top: 48%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1.5px dashed rgba(255, 210, 74, 0.18);
+    box-shadow: 0 0 60px rgba(14, 165, 233, 0.08), inset 0 0 40px rgba(255, 210, 74, 0.06);
+    pointer-events: none;
+    animation: tlHaloSpin 50s linear infinite;
+    z-index: -1;
+  }
+  @keyframes tlHaloSpin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  .tl-lore-badge {
+    background: rgba(14, 165, 233, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 999px;
+    padding: 5px 16px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    color: #38bdf8;
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+
+  .tl-main-title {
+    font-family: var(--font-display);
+    font-size: clamp(38px, 6.5vw, 78px);
+    font-weight: 900;
+    letter-spacing: 6px;
+    color: #ffd24a;
+    text-shadow: 0 0 40px rgba(255, 210, 74, 0.5), 0 4px 18px rgba(0, 0, 0, 0.9);
+    line-height: 1.05;
+    margin: 0;
+  }
+
+  .tl-subtitle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 580px;
+    margin: 10px 0 14px;
+  }
+  .tl-sub-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 210, 74, 0.45), transparent);
+  }
+  .tl-subtitle {
+    font-family: var(--font-display);
+    font-size: clamp(10px, 1.6vw, 15px);
+    letter-spacing: 4px;
+    font-weight: 700;
+    color: #cbd5e1;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+    white-space: nowrap;
+  }
+
+  .tl-tagline {
+    font-size: clamp(9px, 1.2vw, 12px);
+    color: #94a3b8;
+    letter-spacing: 1.5px;
+    margin-bottom: 22px;
+    line-height: 1.6;
+    max-width: 640px;
+  }
+
+  /* 3 Chips */
+  .tl-feature-chips {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .tl-chip {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tl-chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .tl-chip-dot.knight { background: #ffd24a; box-shadow: 0 0 8px #ffd24a; }
+  .tl-chip-dot.realm { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+  .tl-chip-dot.codex { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+
+  /* Slayer Handle Box on Landing */
+  .tl-identity-box {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 210, 74, 0.35);
+    border-radius: 10px;
+    padding: 12px 18px;
+    max-width: 440px;
+    width: 100%;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+  }
+  .tl-id-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    text-align: left;
+  }
+  .tl-id-row {
+    display: flex;
+    gap: 8px;
+  }
+  .tl-input-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(6, 8, 12, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 6px 10px;
+    transition: border-color 0.2s ease;
+  }
+  .tl-input-wrap:focus-within {
+    border-color: #ffd24a;
+    box-shadow: 0 0 10px rgba(255, 210, 74, 0.3);
+  }
+  .tl-input-icon {
+    color: #ffd24a;
+    display: flex;
+    align-items: center;
+  }
+  .tl-name-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ffd24a;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .tl-dice-btn {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(255, 210, 74, 0.3);
+    border-radius: 6px;
+    color: #ffd24a;
+    padding: 6px 12px;
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .tl-dice-btn:hover {
+    background: rgba(255, 210, 74, 0.15);
+    border-color: #ffd24a;
+  }
+
+  /* Main Action CTA */
+  .tl-action-wrap {
+    width: 100%;
+    max-width: 440px;
+  }
+  .tl-enter-btn {
+    position: relative;
+    width: 100%;
+    height: 58px;
+    background: linear-gradient(135deg, #ffd24a 0%, #f59e0b 60%, #b45309 100%);
+    border: 2px solid #fef08a;
+    border-radius: 10px;
+    box-shadow: 0 0 30px rgba(255, 210, 74, 0.5), 0 8px 20px rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    color: #0b0d12;
+    transition: all 0.2s ease;
+  }
+  .tl-enter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 45px rgba(255, 210, 74, 0.75), 0 12px 25px rgba(0,0,0,0.8);
+    filter: brightness(1.08);
+  }
+  .tl-enter-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 0 20px rgba(255, 210, 74, 0.4);
+  }
+  .tl-enter-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    line-height: 1;
+  }
+  .tl-enter-text {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 2px;
+  }
+  .tl-enter-icon {
+    display: inline-flex;
+    align-items: center;
+  }
+  .tl-enter-sub {
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #451a03;
+    margin-top: 3px;
+    font-family: var(--font-display);
+  }
+
+  /* 3. FOOTER */
+  .tl-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 1400px;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: #64748b;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    z-index: 10;
+  }
+  .tl-footer-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tl-dot-live {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: livePulse 2s infinite;
+  }
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Responsive Mobile Tweaks for Title Landing */
+  @media (max-width: 768px) {
+    #title-landing {
+      padding: 16px 18px;
+    }
+    .tl-top-actions .tl-nav-btn span {
+      display: none;
+    }
+    .tl-top-actions .tl-nav-btn {
+      padding: 7px 10px;
+    }
+    .tl-rune-ring {
+      width: 290px;
+      height: 290px;
+    }
+    .tl-main-title {
+      font-size: clamp(32px, 8vw, 44px);
+      letter-spacing: 3px;
+    }
+    .tl-tagline {
+      display: none;
+    }
+    .tl-feature-chips {
+      margin-bottom: 16px;
+      gap: 6px;
+    }
+    .tl-chip {
+      font-size: 8px;
+      padding: 4px 8px;
+    }
+    .tl-identity-box {
+      margin-bottom: 16px;
+      padding: 10px 14px;
+    }
+    .tl-enter-btn {
+      height: 52px;
+    }
+    .tl-enter-text {
+      font-size: 14px;
+    }
+    .tl-footer {
+      flex-direction: column;
+      gap: 6px;
+      text-align: center;
+    }
+  }
 
   /* ========================================================
      CLASSIC AAA HERO SCREEN & EXPEDITION DOCK (VOXEL SOULS)
@@ -2814,11 +3263,108 @@
 
   <div id="perkdraft"></div>
 
+  <!-- ========================================================
+       AAA CINEMATIC TITLE LANDING SCREEN GATEWAY
+       ======================================================== -->
+  <div class="overlay show" id="title-landing">
+    <!-- 1. Top Gateway Navigation -->
+    <header class="tl-top-nav">
+      <div class="tl-brand">
+        <span class="tl-brand-icon" id="tl-crest-icon"></span>
+        <div class="tl-brand-text">
+          <span class="tl-brand-title">VOXEL SOULS</span>
+          <span class="tl-brand-sub">CHRONICLES OF THE ABYSS</span>
+        </div>
+      </div>
+      <div class="tl-top-actions">
+        <button id="tl-leaderboard-btn" class="tl-nav-btn" title="View Hall of Champions">
+          <span class="tl-nav-icon" id="tl-trophy-icon"></span>
+          <span>HALL OF CHAMPIONS</span>
+        </button>
+        <button id="tl-guide-btn" class="tl-nav-btn" title="Controls & Survival Guide">
+          <span class="tl-nav-icon" id="tl-dossier-icon"></span>
+          <span>SURVIVAL CODEX</span>
+        </button>
+        <button id="tl-mute-btn" class="tl-nav-btn tl-mute-btn" title="Toggle Sound">
+          <span class="tl-nav-icon" id="tl-sound-icon"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. Hero Centerpiece -->
+    <div class="tl-centerpiece">
+      <div class="tl-rune-ring"></div>
+      <div class="tl-badge-wrap">
+        <span class="tl-lore-badge">✦ A 3D DARK FANTASY VOXEL CRUCIBLE ✦</span>
+      </div>
+      <h1 class="tl-main-title">VOXEL SOULS</h1>
+      <div class="tl-subtitle-wrap">
+        <div class="tl-sub-line"></div>
+        <span class="tl-subtitle">CHRONICLES OF THE ABYSS</span>
+        <div class="tl-sub-line"></div>
+      </div>
+      <p class="tl-tagline">DESCEND INTO UNFORGIVING REALMS · MASTER HEROIC POWERS · SLAY ANCIENT MONARCHS</p>
+
+      <!-- 3 Feature Chips -->
+      <div class="tl-feature-chips">
+        <div class="tl-chip">
+          <span class="tl-chip-dot knight"></span>
+          <span>3 HERO ARROWS & BLADES</span>
+        </div>
+        <div class="tl-chip">
+          <span class="tl-chip-dot realm"></span>
+          <span>3 ABYSSAL REALMS</span>
+        </div>
+        <div class="tl-chip">
+          <span class="tl-chip-dot codex"></span>
+          <span>LIVE SOVEREIGN CODEX</span>
+        </div>
+      </div>
+
+      <!-- Slayer Handle Registry on Landing -->
+      <div class="tl-identity-box">
+        <div class="tl-id-label">CLAIM THY SOVEREIGN SLAYER TITLE</div>
+        <div class="tl-id-row">
+          <div class="tl-input-wrap">
+            <span class="tl-input-icon" id="tl-user-icon"></span>
+            <input type="text" id="tl-player-name" class="tl-name-input" maxlength="24" placeholder="Enter Champion Name..." spellcheck="false" autocomplete="off" />
+          </div>
+          <button id="tl-dice-btn" class="tl-dice-btn" type="button" title="Generate Runic Slayer Name">
+            <span id="tl-dice-icon"></span>
+            <span>ROLL TITLE</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Enter Action -->
+      <div class="tl-action-wrap">
+        <button id="tl-enter-btn" class="tl-enter-btn">
+          <span class="tl-enter-content">
+            <span class="tl-enter-text">ENTER THE CRUCIBLE</span>
+            <span class="tl-enter-icon" id="tl-arrow-icon"></span>
+          </span>
+          <span class="tl-enter-sub">PRESS [ SPACE ] OR TAP TO EMBARK</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. Bottom Footer -->
+    <footer class="tl-footer">
+      <div class="tl-footer-left">
+        <span class="tl-dot-live"></span>
+        <span>GLOBAL LEADERBOARD ACTIVE · REALM DESCENT OPERATIONAL</span>
+      </div>
+      <div class="tl-footer-right">
+        <span>VOXEL SOULS v1.2 · ZERO-LATENCY WEBGL ENGINE</span>
+      </div>
+    </footer>
+  </div>
+
   <div class="overlay" id="menu">
     <div id="aaa-hero-screen">
       <!-- 1. TOP HEADER -->
       <header id="aaa-header">
-        <div class="aaa-brand">
+        <div class="aaa-brand" id="aaa-brand-btn" style="cursor:pointer;" title="Return to Title Landing">
           <span class="aaa-brand-icon" id="brand-crest-icon"></span>
           <div class="aaa-brand-text">
             <span class="aaa-brand-title">VOXEL SOULS</span>
@@ -2835,6 +3381,9 @@
         </div>
 
         <div class="aaa-top-actions">
+          <button id="menu-back-landing-btn" class="aaa-icon-btn" title="Return to Title Landing">
+            <span id="menu-back-landing-icon"></span> TITLE
+          </button>
           <div class="aaa-player-identity" id="aaa-player-identity" title="Thy Sovereign Slayer Handle on the Global Leaderboard">
             <span class="pid-icon" id="pid-user-icon"></span>
             <span class="pid-label">CHAMPION:</span>
@@ -3043,6 +3592,9 @@
               <span class="mrb-label">RECORD</span>
               <span class="mrb-val" id="mob-home-record">WAVE 1</span>
             </div>
+            <button id="mob-back-landing-btn" class="mob-icon-btn" title="Return to Title Landing">
+              <span id="mob-back-landing-icon"></span>
+            </button>
             <button id="mob-leaderboard-btn" class="mob-icon-btn" title="Hall of Champions">
               <span id="mob-lb-trophy-icon"></span>
             </button>
