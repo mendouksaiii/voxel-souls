@@ -2306,8 +2306,12 @@ function spawnProjectile(o) {
   }
   
   const src = o.origin || player.pos;
-  mesh.position.set(src.x, 1, src.z);
-  mesh.rotation.y = Math.atan2(o.dir.x, o.dir.z);
+  mesh.position.set(src.x, src.y !== undefined ? src.y : 1, src.z);
+  if (Math.abs(o.dir.y) > 0.05) {
+    mesh.lookAt(mesh.position.clone().add(o.dir));
+  } else {
+    mesh.rotation.y = Math.atan2(o.dir.x, o.dir.z);
+  }
   scene.add(mesh);
   projectiles.push({
     mesh, vel: o.dir.clone().multiplyScalar(o.speed), dmg: o.dmg, life: o.life,
@@ -2346,13 +2350,19 @@ function updateProjectiles(dt) {
         }
         if (near || p.life <= 0) { detonate(pos, p.aoe, p.dmg); dead = true; }
       } else {
-        for (const e of enemies) {
-          if (!e.alive || p.hit.has(e)) continue;
-          if (Math.hypot(e.mesh.position.x - pos.x, e.mesh.position.z - pos.z) < e.radius + 0.5) {
-            damageEnemy(e, p.dmg); if (p.slow) e.slow = p.slow; p.hit.add(e);
-            if (p.onHit) p.onHit(pos.clone(), e);
-            if (p.kind === 'magic') burst(pos, 0xb98bff, 6);
-            if (p.pierce-- <= 0) { dead = true; break; }
+        // Ground impact for descending projectiles (e.g. Archer Skyfall Barrage arrows from y=22)
+        if (pos.y <= 0.25 && p.vel.y < -1) {
+          if (p.onHit) p.onHit(pos.clone(), null);
+          dead = true;
+        } else {
+          for (const e of enemies) {
+            if (!e.alive || p.hit.has(e)) continue;
+            if (Math.hypot(e.mesh.position.x - pos.x, e.mesh.position.z - pos.z) < e.radius + 0.5) {
+              damageEnemy(e, p.dmg); if (p.slow) e.slow = p.slow; p.hit.add(e);
+              if (p.onHit) p.onHit(pos.clone(), e);
+              if (p.kind === 'magic') burst(pos, 0xb98bff, 6);
+              if (p.pierce-- <= 0) { dead = true; break; }
+            }
           }
         }
         if (p.life <= 0) dead = true;
@@ -3007,19 +3017,25 @@ function updateSpecialsHUD() {
 
 function autoAimNearestEnemy(maxDist = 18) {
   if (!player || !enemies || enemies.length === 0) return;
+  const isTouch = document.body.classList.contains('touch-device') || ('ontouchstart' in window);
+  const [ax, az] = axis();
+  const isMoving = !!(ax || az);
+  // On PC, if the player is actively moving in a direction, respect their intentional movement direction
+  if (!isTouch && isMoving) return;
+
   let closest = null;
   let minDist = maxDist;
   for (let i = 0; i < enemies.length; i++) {
     const m = enemies[i];
-    if (!m.alive) continue;
-    const d = player.pos.distanceTo(m.pos);
+    if (!m || !m.alive || !m.mesh || !m.mesh.position) continue;
+    const d = player.pos.distanceTo(m.mesh.position);
     if (d < minDist) {
       minDist = d;
       closest = m;
     }
   }
-  if (closest) {
-    tmp.subVectors(closest.pos, player.pos);
+  if (closest && closest.mesh && closest.mesh.position) {
+    tmp.subVectors(closest.mesh.position, player.pos);
     tmp.y = 0;
     if (tmp.lengthSq() > 0.001) {
       player.facing.copy(tmp.normalize());
@@ -3033,23 +3049,32 @@ function useSpecial(idx) {
   const s = G.specials[idx];
   if (!s || s.curCd > 0) return;
 
-  // Auto-aim toward nearest hostile so one-handed mobile play hits targets reliably
-  autoAimNearestEnemy(18);
+  try {
+    // Auto-aim toward nearest hostile so one-handed mobile play hits targets reliably
+    autoAimNearestEnemy(18);
 
-  const heroCls = G.class || 'knight';
-  const success = EXECUTE_SPECIAL[heroCls]?.[idx]?.(s);
-  if (success !== false) {
-    s.curCd = s.cd * (modifiers?.cdMul || 1);
-    floatText(player.pos, s.name.toUpperCase(), '#ffd24a', 1.3);
+    const heroCls = G.class || 'knight';
+    const executeFn = EXECUTE_SPECIAL[heroCls]?.[idx];
+    if (executeFn) {
+      const success = executeFn(s);
+      if (success !== false) {
+        s.curCd = s.cd * (modifiers?.cdMul || 1);
+        floatText(player.pos, s.name.toUpperCase(), '#ffd24a', 1.3);
 
-    // Audio SFX for hero abilities
-    const soundMap = {
-      knight: ['aegis', 'solar', 'wrath'],
-      archer: ['bow', 'whirl', 'supernova'],
-      mage: ['singularity', 'glacial', 'supernova'],
-    };
-    const sfx = soundMap[heroCls]?.[idx] || 'solar';
-    Audio.playSpecialSound(sfx);
+        // Audio SFX for hero abilities
+        const soundMap = {
+          knight: ['aegis', 'solar', 'wrath'],
+          archer: ['bow', 'whirl', 'supernova'],
+          mage: ['singularity', 'glacial', 'supernova'],
+        };
+        const sfx = soundMap[heroCls]?.[idx] || 'solar';
+        if (Audio && Audio.playSpecialSound) {
+          Audio.playSpecialSound(sfx);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error executing special move:', err);
   }
 }
 
@@ -3184,14 +3209,17 @@ const EXECUTE_SPECIAL = {
       let rotAngle = 0;
       let tickT = 0;
       const totalDur = 2.6;
+      let lifeRem = totalDur;
 
       activeSpecials.push({
         life: totalDur,
+        mesh: bladesG,
         update: (dt) => {
           rotAngle += 16 * dt;
           tickT += dt;
+          lifeRem = Math.max(0, lifeRem - dt);
 
-          const prog = 1 - (activeSpecials.find(x => x.mesh === bladesG)?.life || 0) / totalDur;
+          const prog = 1 - (lifeRem / totalDur);
           const radius = 2.4 + prog * 3.8;
 
           sealG.position.set(player.pos.x, 0.08, player.pos.z);
@@ -3237,6 +3265,8 @@ const EXECUTE_SPECIAL = {
           scene.remove(bladesG);
         },
         dispose: () => {
+          scene.remove(sealG);
+          scene.remove(bladesG);
           sealG.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
           bladesG.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
         }
@@ -3314,19 +3344,23 @@ const EXECUTE_SPECIAL = {
               floatText(player.pos, '+40 HP · SOVEREIGN WRATH', '#60a5fa', 1.6);
 
               // Floating Golden Sovereign Halo over Knight's Helmet
-              const halo = new THREE.Mesh(
-                new THREE.TorusGeometry(0.55, 0.06, 8, 24),
-                new THREE.MeshBasicMaterial({ color: 0xffea38 })
-              );
-              halo.rotation.x = Math.PI / 2;
-              halo.position.set(0, 0.72, 0);
-              player.parts.head.add(halo);
+              if (player.parts && player.parts.head) {
+                const halo = new THREE.Mesh(
+                  new THREE.TorusGeometry(0.55, 0.06, 8, 24),
+                  new THREE.MeshBasicMaterial({ color: 0xffea38 })
+                );
+                halo.rotation.x = Math.PI / 2;
+                halo.position.set(0, 0.72, 0);
+                player.parts.head.add(halo);
 
-              setTimeout(() => {
-                player.parts.head.remove(halo);
-                halo.geometry.dispose();
-                halo.material.dispose();
-              }, 4500);
+                setTimeout(() => {
+                  if (player?.parts?.head) {
+                    player.parts.head.remove(halo);
+                  }
+                  halo.geometry.dispose();
+                  halo.material.dispose();
+                }, 4500);
+              }
             }
           } else {
             // Lingering impaled sword dissolving
@@ -3408,6 +3442,15 @@ const EXECUTE_SPECIAL = {
       ringBurst(launchPos, 4.5, 0xef233c);
       shake(0.35);
 
+      // Instant burst damage to all enemies around launch position
+      for (const e of enemies) {
+        if (!e.alive) continue;
+        if (launchPos.distanceTo(e.mesh.position) < 5.2) {
+          damageEnemy(e, 40);
+          burst(e.mesh.position, 0xef233c, 8);
+        }
+      }
+
       // 10 Physical Spiked 3D Metallic Caltrops on the floor
       const caltropsG = new THREE.Group();
       caltropsG.position.copy(launchPos);
@@ -3420,8 +3463,9 @@ const EXECUTE_SPECIAL = {
       }
       scene.add(caltropsG);
 
-      // Lingering Corrosive Smoke Zone
+      // Lingering Corrosive Smoke Zone with Periodic Spikes
       let smokeTimer = 0;
+      let tickTimer = 0;
       activeSpecials.push({
         life: 4.5,
         mesh: caltropsG,
@@ -3432,17 +3476,20 @@ const EXECUTE_SPECIAL = {
             burst(launchPos, 0x991b1b, 3);
           }
 
-          // Cripple and Bleed enemies entering the zone
+          tickTimer += dt;
+          const doTick = tickTimer >= 0.35;
+          if (doTick) tickTimer = 0;
+
+          // Cripple, Bleed, and impale enemies in the zone
           for (const e of enemies) {
             if (!e.alive) continue;
             if (launchPos.distanceTo(e.mesh.position) < 5.2) {
-              e.slow = 4.0;
-              e.bleedT = 4.0;
-              e.bleedDmg = 12;
-              if (!e.caltropSnared) {
-                e.caltropSnared = true;
-                damageEnemy(e, 40);
-                burst(e.mesh.position, 0xef233c, 8);
+              e.slow = Math.max(e.slow || 0, 3.5);
+              e.bleedT = Math.max(e.bleedT || 0, 3.5);
+              e.bleedDmg = 14;
+              if (doTick) {
+                damageEnemy(e, 18);
+                burst(e.mesh.position, 0xef233c, 4);
               }
             }
           }
@@ -3508,12 +3555,13 @@ const EXECUTE_SPECIAL = {
               speed: 36,
               dmg: 28,
               pierce: 1,
-              life: 0.8,
+              life: 1.0,
               color: 0xef233c,
-              onHit: () => {
-                detonate(impactP, 2.4, 28);
-                burst(impactP, 0xdc2626, 6);
-                ringBurst(impactP, 2.2, 0xff4d6d);
+              onHit: (hitPos) => {
+                const target = hitPos || impactP;
+                detonate(target, 2.6, 30);
+                burst(target, 0xdc2626, 6);
+                ringBurst(target, 2.2, 0xff4d6d);
               }
             });
             shake(0.18);
