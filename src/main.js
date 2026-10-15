@@ -922,17 +922,28 @@ function bindInput() {
     if (G.drafting && (k === '1' || k === '2' || k === '3')) pickDraft(+k - 1);
     if ((k === 'p' || k === 'escape') && (G.mode === 'playing' || G.mode === 'paused')) togglePause();
     if (G.mode === 'playing' && !G.drafting) {
+      if (k === ' ' || k === 'shift') {
+        triggerDash();
+      }
       if (k === 'e' && realmPortal && realmPortal.active && player && player.pos.distanceTo(realmPortal.pos) < 4.0) {
         enterRealmPortal();
         return;
       }
-      if (k === 'q') useSpecial(0);
-      if (k === 'e') useSpecial(1);
-      if (k === 'r') useSpecial(2);
+      if (k === 'q' || k === '1') useSpecial(0);
+      if (k === 'e' || k === '2') useSpecial(1);
+      if (k === 'r' || k === '3') useSpecial(2);
     }
   });
   addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+  // PC Right-Click in arena: cast primary special move (e.g. Aegis Rush / Scattershot / Singularity)
+  window.addEventListener('contextmenu', (e) => {
+    if (G.mode === 'playing') {
+      e.preventDefault();
+      useSpecial(0);
+    }
+  });
 }
 
 function initTouchControls() {
@@ -1084,9 +1095,9 @@ function initTouchControls() {
     joystickZone.addEventListener('touchend', onJoyEnd, { passive: false });
     joystickZone.addEventListener('touchcancel', onJoyEnd, { passive: false });
 
-    // Pointer events for desktop testing and mouse/stylus emulation
+    // Pointer events for touch/stylus
     joystickZone.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.pointerType === 'mouse') return;
       handleJoyStart(e.clientX, e.clientY, e.pointerId);
       const onMove = (pe) => {
         if (pe.pointerId === joystickTouchId) handleJoyMove(pe.clientX, pe.clientY);
@@ -1177,7 +1188,9 @@ function initTouchControls() {
 }
 
 function axis() {
-  let x = touchAxis.x || 0, z = touchAxis.z || 0;
+  const isMobile = window.innerWidth <= 860;
+  let x = isMobile ? (touchAxis.x || 0) : 0;
+  let z = isMobile ? (touchAxis.z || 0) : 0;
   if (keys['w'] || keys['arrowup']) z -= 1;
   if (keys['s'] || keys['arrowdown']) z += 1;
   if (keys['a'] || keys['arrowleft']) x -= 1;
@@ -1219,7 +1232,7 @@ function updatePlayer(dt) {
     player.facing.copy(tmp); 
   }
 
-  if (keys[' ']) triggerDash();
+  if (keys[' '] || keys['shift']) triggerDash();
   const dashing = player.dashT > 0;
 
   if (G.comboTimer > 0) {
@@ -3847,10 +3860,16 @@ function startRun(cls) {
   Audio.stopHomescreenMusic(0.4);
   Audio.playDungeonMusic(0);
 
-  // Activate in-game mobile HUD controls
+  // Activate in-game mobile HUD controls strictly on mobile devices
   document.body.classList.add('in-game');
   const touchCtrl = $('touch-controls');
-  if (touchCtrl) touchCtrl.classList.remove('touch-hidden');
+  if (touchCtrl) {
+    if (window.innerWidth <= 860) {
+      touchCtrl.classList.remove('touch-hidden');
+    } else {
+      touchCtrl.classList.add('touch-hidden');
+    }
+  }
 
   startWave(1);
 }
@@ -4250,9 +4269,9 @@ function initHomeUI() {
 
 function goToMenu() {
   G.mode = 'menu';
-  Audio.initAudio();
-  Audio.playGem();
-  Audio.playHomescreenMusic();
+  try { Audio.initAudio(); } catch(e){}
+  try { Audio.playGem(); } catch(e){}
+  try { Audio.playHomescreenMusic(); } catch(e){}
 
   // Sync player name from landing input if entered
   const tlInput = $('tl-player-name');
@@ -4275,7 +4294,7 @@ function goToMenu() {
 
 function goToLanding() {
   G.mode = 'landing';
-  Audio.playHomescreenMusic();
+  try { Audio.playHomescreenMusic(); } catch(e){}
   dom.menu.classList.remove('show');
   if (dom.titleLanding) dom.titleLanding.classList.add('show');
   
@@ -4303,6 +4322,33 @@ function initLandingUI() {
   if (backIcon) backIcon.innerHTML = getIcon('chevron_left', 14);
   const mobBackIcon = $('mob-back-landing-icon');
   if (mobBackIcon) mobBackIcon.innerHTML = getIcon('chevron_left', 16);
+
+  // Auto-play audio on any first gesture on title landing screen
+  const tlLanding = $('title-landing');
+  if (tlLanding) {
+    const triggerLandingAudio = () => {
+      try {
+        Audio.initAudio();
+        Audio.playHomescreenMusic();
+      } catch(e){}
+    };
+    tlLanding.addEventListener('pointerdown', triggerLandingAudio);
+    tlLanding.addEventListener('click', triggerLandingAudio);
+  }
+
+  // Handle window viewport resizing between desktop and mobile in-game
+  window.addEventListener('resize', () => {
+    const touchCtrl = $('touch-controls');
+    if (touchCtrl) {
+      if (window.innerWidth <= 860 && G.mode === 'playing') {
+        touchCtrl.classList.remove('touch-hidden');
+      } else {
+        touchCtrl.classList.add('touch-hidden');
+        touchAxis.x = 0;
+        touchAxis.z = 0;
+      }
+    }
+  });
 
   // Mute button icon on landing
   const landingMuteBtn = $('tl-mute-btn');

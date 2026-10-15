@@ -51,6 +51,23 @@ export function toggleMute() {
 
 // ------------------------------------------------------------- SOUND GENERATORS
 
+// UI / Gem / Select chime
+export function playGem() {
+  if (!ensureContext()) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, now);
+  osc.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.18);
+}
+
 // 1. Dash whoosh (filtered white noise + sine sweep)
 export function playDash() {
   if (!ensureContext()) return;
@@ -362,6 +379,21 @@ export function playSpecialSound(kind) {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
     osc.connect(gain); gain.connect(masterGain);
     osc.start(now); osc.stop(now + 1.2);
+
+  } else if (kind === 'whirl') {
+    // Razor wind vortex
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.linearRampToValueAtTime(680, now + 0.35);
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+    osc.connect(gain); gain.connect(masterGain);
+    osc.start(now); osc.stop(now + 0.4);
+
+  } else if (kind === 'bow') {
+    playBow();
   }
 }
 
@@ -474,7 +506,6 @@ export function initBgm() {
       track.audio.src = track.path;
       track.audio.loop = true;
       track.audio.preload = 'auto';
-      track.audio.crossOrigin = 'anonymous';
       track.audio.volume = isMutedState ? 0 : BGM_VOLUME;
     }
   }
@@ -485,7 +516,6 @@ export function initBgm() {
     HOMESCREEN_TRACK.audio.src = HOMESCREEN_TRACK.path;
     HOMESCREEN_TRACK.audio.loop = true;
     HOMESCREEN_TRACK.audio.preload = 'auto';
-    HOMESCREEN_TRACK.audio.crossOrigin = 'anonymous';
     HOMESCREEN_TRACK.audio.volume = isMutedState ? 0 : BGM_VOLUME;
   }
 }
