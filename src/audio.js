@@ -437,23 +437,19 @@ const DUNGEON_TRACKS = {
     name: 'Forgotten Sanctum',
     path: './assets/audio/dungeon_forest.mp3',
     audio: null,
-    source: null,
-    gain: null,
   },
   1: {
     id: 'dungeon_inferno',
     name: 'The Inferno',
     path: './assets/audio/dungeon_inferno.mp3',
     audio: null,
-    source: null,
-    gain: null,
   },
 };
 
 export function initBgm() {
   if (typeof window === 'undefined') return;
 
-  // Pre-initialize and preload available dungeon audio tracks
+  // Pre-initialize and preload available dungeon audio tracks with native hardware playback
   for (const idx of [0, 1]) {
     const track = DUNGEON_TRACKS[idx];
     if (track && !track.audio) {
@@ -461,19 +457,8 @@ export function initBgm() {
       track.audio.src = track.path;
       track.audio.loop = true;
       track.audio.preload = 'auto';
+      track.audio.crossOrigin = 'anonymous';
       track.audio.volume = isMutedState ? 0 : BGM_VOLUME;
-
-      try {
-        if (ctx && !track.source) {
-          track.source = ctx.createMediaElementSource(track.audio);
-          track.gain = ctx.createGain();
-          track.gain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
-          track.source.connect(track.gain);
-          track.gain.connect(masterGain || ctx.destination);
-        }
-      } catch (e) {
-        // MediaElementSource routing fallback to direct element volume
-      }
     }
   }
 }
@@ -483,22 +468,25 @@ export function playDungeonMusic(mapIndex = 0) {
   initAudio();
   initBgm();
 
-  // If entering a dungeon without an assigned soundtrack (e.g., Dungeon 3: Void), fade out previous track cleanly
+  // If entering a dungeon without an assigned soundtrack (e.g. Dungeon 3: Void), fade out previous track cleanly
   if (!(mapIndex in DUNGEON_TRACKS)) {
-    stopDungeonMusic(1.2);
+    stopDungeonMusic(1.0);
     return;
   }
 
-  // If the desired dungeon track is ALREADY the active track
+  // Cancel any active fade timer so it cannot pause or silence our playback
+  if (bgmFadeTimer) {
+    clearInterval(bgmFadeTimer);
+    bgmFadeTimer = null;
+  }
+
+  // If the desired dungeon track is ALREADY the active track and playing smoothly, do not touch or restart it
   if (currentTrackIndex === mapIndex) {
     const active = DUNGEON_TRACKS[mapIndex];
     if (active && active.audio) {
       active.audio.loop = true;
       if (active.audio.paused) {
         active.audio.volume = isMutedState ? 0 : BGM_VOLUME;
-        if (active.gain && ctx) {
-          active.gain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
-        }
         const playPromise = active.audio.play();
         if (playPromise !== undefined) {
           playPromise.catch((err) => {
@@ -510,7 +498,7 @@ export function playDungeonMusic(mapIndex = 0) {
     return;
   }
 
-  // If switching from another dungeon track, pause and reset the previous one
+  // If switching from another dungeon track, pause and reset the previous one immediately
   if (currentTrackIndex !== null && DUNGEON_TRACKS[currentTrackIndex]) {
     const prev = DUNGEON_TRACKS[currentTrackIndex];
     if (prev.audio) {
@@ -519,20 +507,11 @@ export function playDungeonMusic(mapIndex = 0) {
     }
   }
 
-  // Cancel any in-progress fadeout
-  if (bgmFadeTimer) {
-    clearInterval(bgmFadeTimer);
-    bgmFadeTimer = null;
-  }
-
   currentTrackIndex = mapIndex;
   const next = DUNGEON_TRACKS[mapIndex];
   if (next && next.audio) {
     next.audio.loop = true;
     next.audio.volume = isMutedState ? 0 : BGM_VOLUME;
-    if (next.gain && ctx) {
-      next.gain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
-    }
 
     const playPromise = next.audio.play();
     if (playPromise !== undefined) {
@@ -557,9 +536,6 @@ export function resumeDungeonMusic() {
     const active = DUNGEON_TRACKS[currentTrackIndex];
     if (active && active.audio && active.audio.paused) {
       active.audio.volume = isMutedState ? 0 : BGM_VOLUME;
-      if (active.gain && ctx) {
-        active.gain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
-      }
       const playPromise = active.audio.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {});
@@ -570,38 +546,49 @@ export function resumeDungeonMusic() {
 
 export function stopDungeonMusic(fadeSec = 0.5) {
   if (currentTrackIndex === null || !DUNGEON_TRACKS[currentTrackIndex]) return;
-  const active = DUNGEON_TRACKS[currentTrackIndex];
-  if (!active || !active.audio || active.audio.paused) return;
+  const fadingTrackIndex = currentTrackIndex;
+  const trackToFade = DUNGEON_TRACKS[fadingTrackIndex];
+  if (!trackToFade || !trackToFade.audio || trackToFade.audio.paused) {
+    currentTrackIndex = null;
+    return;
+  }
+
+  if (bgmFadeTimer) {
+    clearInterval(bgmFadeTimer);
+    bgmFadeTimer = null;
+  }
 
   if (fadeSec > 0) {
-    const startVol = active.audio.volume;
-    const steps = 12;
+    const startVol = trackToFade.audio.volume || BGM_VOLUME;
+    const steps = 10;
     const stepTime = (fadeSec * 1000) / steps;
     let step = 0;
 
-    clearInterval(bgmFadeTimer);
     bgmFadeTimer = setInterval(() => {
       step++;
       const factor = Math.max(0, 1 - step / steps);
-      if (active.audio) active.audio.volume = startVol * factor;
-      if (active.gain && ctx) {
-        active.gain.gain.setValueAtTime(BGM_VOLUME * factor, ctx.currentTime);
+      if (trackToFade.audio) {
+        trackToFade.audio.volume = isMutedState ? 0 : (startVol * factor);
       }
       if (step >= steps) {
         clearInterval(bgmFadeTimer);
         bgmFadeTimer = null;
-        if (active.audio) {
-          active.audio.pause();
-          active.audio.currentTime = 0;
-          active.audio.volume = isMutedState ? 0 : BGM_VOLUME;
+        if (trackToFade.audio) {
+          trackToFade.audio.pause();
+          trackToFade.audio.currentTime = 0;
+          trackToFade.audio.volume = isMutedState ? 0 : BGM_VOLUME;
         }
-        currentTrackIndex = null;
+        if (currentTrackIndex === fadingTrackIndex) {
+          currentTrackIndex = null;
+        }
       }
     }, stepTime);
   } else {
-    active.audio.pause();
-    active.audio.currentTime = 0;
-    currentTrackIndex = null;
+    trackToFade.audio.pause();
+    trackToFade.audio.currentTime = 0;
+    if (currentTrackIndex === fadingTrackIndex) {
+      currentTrackIndex = null;
+    }
   }
 }
 
@@ -610,9 +597,6 @@ export function updateBgmVolume() {
     const track = DUNGEON_TRACKS[idx];
     if (track && track.audio) {
       track.audio.volume = isMutedState ? 0 : BGM_VOLUME;
-    }
-    if (track && track.gain && ctx) {
-      track.gain.gain.setValueAtTime(isMutedState ? 0 : BGM_VOLUME, ctx.currentTime);
     }
   }
 }

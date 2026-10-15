@@ -896,6 +896,7 @@ function triggerDash() {
     player.dashT = PLAYER.dashDur; player.iframes = PLAYER.dashIframes;
     player.dashCd = P.dashCd; player.trailT = 0;
     Audio.playDash();
+    if (navigator.vibrate) try { navigator.vibrate(15); } catch(e){}
   }
 }
 
@@ -939,66 +940,110 @@ function initTouchControls() {
     mobPause.onclick = () => togglePause();
   }
 
-  // 1. Virtual Joystick Locomotion
-  const joyZone = $('touch-joystick-zone');
-  const joyBase = $('touch-joystick-base');
-  const joyKnob = $('touch-joystick-knob');
-  let joyTouchId = null;
-  let joyCenter = { x: 0, y: 0 };
-  const maxR = 44;
+  // 1. Dynamic Floating Invisible Cursor Locomotion Engine
+  const touchSurface = $('touch-surface');
+  const floatingCursor = $('touch-floating-cursor');
+  const tfcGem = $('tfc-gem');
+  const tfcLine = $('tfc-line');
+  let cursorTouchId = null;
+  let cursorOrigin = { x: 0, y: 0 };
+  const maxR = 52;
 
-  if (joyZone && joyBase && joyKnob) {
-    function updateCenter() {
-      const rect = joyBase.getBoundingClientRect();
-      joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  function onCursorStart(e) {
+    if (G.mode !== 'playing') return;
+    if (cursorTouchId !== null) return;
+    const t = e.changedTouches ? e.changedTouches[0] : e;
+    cursorTouchId = t.identifier !== undefined ? t.identifier : 'mouse';
+    cursorOrigin = { x: t.clientX, y: t.clientY };
+
+    if (floatingCursor) {
+      floatingCursor.style.left = `${cursorOrigin.x}px`;
+      floatingCursor.style.top = `${cursorOrigin.y}px`;
+      floatingCursor.classList.remove('touch-cursor-hidden');
     }
+  }
 
-    function handleJoyMove(cx, cy) {
-      const dx = cx - joyCenter.x;
-      const dy = cy - joyCenter.y;
-      const dist = Math.hypot(dx, dy);
-      const clampedDist = Math.min(dist, maxR);
+  function onCursorMove(cx, cy) {
+    const dx = cx - cursorOrigin.x;
+    const dy = cy - cursorOrigin.y;
+    const dist = Math.hypot(dx, dy);
+
+    // Dynamic origin following if thumb sweeps beyond radius * 1.5
+    if (dist > maxR * 1.5) {
       const angle = Math.atan2(dy, dx);
-      const kx = Math.cos(angle) * clampedDist;
-      const ky = Math.sin(angle) * clampedDist;
-      joyKnob.style.transform = `translate(${kx}px, ${ky}px)`;
-      touchAxis.x = clampedDist > 5 ? (kx / maxR) : 0;
-      touchAxis.z = clampedDist > 5 ? (ky / maxR) : 0;
+      cursorOrigin.x = cx - Math.cos(angle) * (maxR * 1.5);
+      cursorOrigin.y = cy - Math.sin(angle) * (maxR * 1.5);
+      if (floatingCursor) {
+        floatingCursor.style.left = `${cursorOrigin.x}px`;
+        floatingCursor.style.top = `${cursorOrigin.y}px`;
+      }
     }
 
-    joyZone.addEventListener('touchstart', (e) => {
+    const currentDx = cx - cursorOrigin.x;
+    const currentDy = cy - cursorOrigin.y;
+    const currentDist = Math.hypot(currentDx, currentDy);
+    const clampedDist = Math.min(currentDist, maxR);
+    const angle = Math.atan2(currentDy, currentDx);
+
+    const kx = Math.cos(angle) * clampedDist;
+    const ky = Math.sin(angle) * clampedDist;
+
+    if (tfcGem) tfcGem.style.transform = `translate(${kx}px, ${ky}px)`;
+    if (tfcLine) {
+      tfcLine.style.width = `${clampedDist}px`;
+      tfcLine.style.transform = `rotate(${angle * (180 / Math.PI)}deg)`;
+    }
+
+    // Deadzone filter and parabolic acceleration for precision one-handed steering
+    if (clampedDist < 6) {
+      touchAxis.x = 0;
+      touchAxis.z = 0;
+    } else {
+      const norm = (clampedDist - 6) / (maxR - 6);
+      const power = Math.pow(norm, 1.15);
+      touchAxis.x = Math.cos(angle) * power;
+      touchAxis.z = Math.sin(angle) * power;
+    }
+  }
+
+  function onCursorEnd() {
+    cursorTouchId = null;
+    touchAxis.x = 0;
+    touchAxis.z = 0;
+    if (floatingCursor) {
+      floatingCursor.classList.add('touch-cursor-hidden');
+    }
+    if (tfcGem) tfcGem.style.transform = 'translate(0px, 0px)';
+    if (tfcLine) tfcLine.style.width = '0px';
+  }
+
+  if (touchSurface) {
+    touchSurface.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      if (joyTouchId !== null) return;
-      const t = e.changedTouches[0];
-      joyTouchId = t.identifier;
-      updateCenter();
-      handleJoyMove(t.clientX, t.clientY);
+      onCursorStart(e);
     }, { passive: false });
 
-    joyZone.addEventListener('touchmove', (e) => {
+    touchSurface.addEventListener('touchmove', (e) => {
       e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        if (t.identifier === joyTouchId) {
-          handleJoyMove(t.clientX, t.clientY);
+        if (t.identifier === cursorTouchId) {
+          onCursorMove(t.clientX, t.clientY);
           break;
         }
       }
     }, { passive: false });
 
-    const endJoy = (e) => {
+    const endCursor = (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === joyTouchId) {
-          joyTouchId = null;
-          touchAxis.x = 0;
-          touchAxis.z = 0;
-          joyKnob.style.transform = 'translate(0px, 0px)';
+        if (e.changedTouches[i].identifier === cursorTouchId) {
+          onCursorEnd();
           break;
         }
       }
     };
-    joyZone.addEventListener('touchend', endJoy, { passive: false });
-    joyZone.addEventListener('touchcancel', endJoy, { passive: false });
+    touchSurface.addEventListener('touchend', endCursor, { passive: false });
+    touchSurface.addEventListener('touchcancel', endCursor, { passive: false });
   }
 
   // 2. Dash Button
@@ -1011,19 +1056,56 @@ function initTouchControls() {
     dashBtn.addEventListener('click', () => triggerDash());
   }
 
-  // 3. Specials (Q, E, R)
+  // 3. Specials (Q, E, R) with Auto-Aim & Tactile Feedback
   ['q', 'e', 'r'].forEach((k, idx) => {
     const btn = $(`touch-btn-${k}`);
     if (btn) {
       btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        if (navigator.vibrate) try { navigator.vibrate(25); } catch(err){}
         useSpecial(idx);
       }, { passive: false });
-      btn.addEventListener('click', () => useSpecial(idx));
+      btn.addEventListener('click', () => {
+        if (navigator.vibrate) try { navigator.vibrate(25); } catch(err){}
+        useSpecial(idx);
+      });
     }
   });
 
-  // 4. Portal Descent Button
+  // 4. One-Handed Layout Handedness Toggle (Left / Right Hand)
+  const handToggle = $('touch-hand-toggle');
+  const actionPad = $('touch-action-pad');
+  const handToggleLabel = $('th-toggle-label');
+  const handToggleIcon = $('th-toggle-icon');
+  if (handToggleIcon) handToggleIcon.innerHTML = getIcon('hand', 14);
+
+  let currentHandMode = localStorage.getItem('lbs_hand_mode') || 'right';
+  function applyHandMode(mode) {
+    currentHandMode = mode;
+    localStorage.setItem('lbs_hand_mode', mode);
+    if (actionPad) {
+      if (mode === 'left') {
+        actionPad.classList.add('hand-mode-left');
+        actionPad.classList.remove('hand-mode-right');
+        if (handToggleLabel) handToggleLabel.textContent = '1-HAND [L]';
+      } else {
+        actionPad.classList.add('hand-mode-right');
+        actionPad.classList.remove('hand-mode-left');
+        if (handToggleLabel) handToggleLabel.textContent = '1-HAND [R]';
+      }
+    }
+  }
+  applyHandMode(currentHandMode);
+
+  if (handToggle) {
+    handToggle.onclick = (e) => {
+      e.stopPropagation();
+      applyHandMode(currentHandMode === 'right' ? 'left' : 'right');
+      Audio.playGem();
+    };
+  }
+
+  // 5. Portal Descent Button
   const portalBtn = $('touch-portal-btn');
   if (portalBtn) {
     portalBtn.addEventListener('touchstart', (e) => {
@@ -1239,12 +1321,13 @@ function triggerAttack(kind) {
 function updateCamera(dt) {
   if (G.mode === 'menu') {
     // Cinematic AAA Hero Select Framing: intimate eye-level view centered between panels
+    const isMobile = window.innerWidth <= 860;
     const orbitSpeed = 0.16;
-    const sway = Math.sin(G.time * orbitSpeed) * 0.75;
-    const dist = 4.8 + Math.cos(G.time * orbitSpeed * 0.5) * 0.2;
+    const sway = Math.sin(G.time * orbitSpeed) * (isMobile ? 0.35 : 0.75);
+    const dist = (isMobile ? 5.6 : 4.8) + Math.cos(G.time * orbitSpeed * 0.5) * 0.2;
     camera.position.x = sway;
     camera.position.z = dist;
-    camera.position.y = 1.75 + Math.sin(G.time * 0.35) * 0.08;
+    camera.position.y = (isMobile ? 1.55 : 1.75) + Math.sin(G.time * 0.35) * 0.08;
     camera.lookAt(0, 1.25, 0);
     return;
   }
@@ -2851,10 +2934,36 @@ function updateSpecialsHUD() {
   }
 }
 
+function autoAimNearestEnemy(maxDist = 18) {
+  if (!player || !enemies || enemies.length === 0) return;
+  let closest = null;
+  let minDist = maxDist;
+  for (let i = 0; i < enemies.length; i++) {
+    const m = enemies[i];
+    if (!m.alive) continue;
+    const d = player.pos.distanceTo(m.pos);
+    if (d < minDist) {
+      minDist = d;
+      closest = m;
+    }
+  }
+  if (closest) {
+    tmp.subVectors(closest.pos, player.pos);
+    tmp.y = 0;
+    if (tmp.lengthSq() > 0.001) {
+      player.facing.copy(tmp.normalize());
+      player.group.rotation.y = Math.atan2(player.facing.x, player.facing.z);
+    }
+  }
+}
+
 function useSpecial(idx) {
   if (G.mode !== 'playing' || G.drafting || !G.specials) return;
   const s = G.specials[idx];
   if (!s || s.curCd > 0) return;
+
+  // Auto-aim toward nearest hostile so one-handed mobile play hits targets reliably
+  autoAimNearestEnemy(18);
 
   const heroCls = G.class || 'knight';
   const success = EXECUTE_SPECIAL[heroCls]?.[idx]?.(s);
@@ -3867,18 +3976,49 @@ function initHomeUI() {
   const aicDice = $('aic-dice-icon');
   if (aicDice) aicDice.innerHTML = getIcon('dice', 14);
 
+  // Mobile Top HUD vector icons
+  const mobCrest = $('mob-crest-icon');
+  if (mobCrest) mobCrest.innerHTML = getIcon('crown', 18);
+  const mobUser = $('mob-user-icon');
+  if (mobUser) mobUser.innerHTML = getIcon('user', 12);
+  const mobLbTrophy = $('mob-lb-trophy-icon');
+  if (mobLbTrophy) mobLbTrophy.innerHTML = getIcon('trophy', 14);
+  const mobCodex = $('mob-codex-icon');
+  if (mobCodex) mobCodex.innerHTML = getIcon('dossier', 14);
+  const mobPrevIcon = $('mob-prev-icon');
+  if (mobPrevIcon) mobPrevIcon.innerHTML = getIcon('chevron_left', 16);
+  const mobNextIcon = $('mob-next-icon');
+  if (mobNextIcon) mobNextIcon.innerHTML = getIcon('chevron_right', 16);
+  const mobDrawerChev = $('mob-drawer-chevron');
+  if (mobDrawerChev) mobDrawerChev.innerHTML = getIcon('chevron_down', 14);
+  const mobIconTabStats = $('mob-icon-tab-stats');
+  if (mobIconTabStats) mobIconTabStats.innerHTML = getIcon('shield', 13);
+  const mobIconTabSkills = $('mob-icon-tab-skills');
+  if (mobIconTabSkills) mobIconTabSkills.innerHTML = getIcon('zap', 13);
+  const mobIconTabRealms = $('mob-icon-tab-realms');
+  if (mobIconTabRealms) mobIconTabRealms.innerHTML = getIcon('portal', 13);
+  const mobIconKnight = $('mob-icon-knight');
+  if (mobIconKnight) mobIconKnight.innerHTML = getIcon('shield', 14);
+  const mobIconMage = $('mob-icon-mage');
+  if (mobIconMage) mobIconMage.innerHTML = getIcon('magic', 14);
+  const mobIconArcher = $('mob-icon-archer');
+  if (mobIconArcher) mobIconArcher.innerHTML = getIcon('bow', 14);
+
   const homeNameInput = $('home-player-name-input');
   const landingNameInput = $('landing-player-name');
+  const mobNameInput = $('mob-player-name-input');
   const currentSavedName = getSavedName(G.selectedClass || 'knight');
 
   if (homeNameInput) homeNameInput.value = currentSavedName;
   if (landingNameInput) landingNameInput.value = currentSavedName;
+  if (mobNameInput) mobNameInput.value = currentSavedName;
   updateLandingCareerBadge(currentSavedName);
 
   const syncNameInputs = (newVal) => {
     const clean = newVal.trim();
     if (homeNameInput && homeNameInput.value !== newVal) homeNameInput.value = newVal;
     if (landingNameInput && landingNameInput.value !== newVal) landingNameInput.value = newVal;
+    if (mobNameInput && mobNameInput.value !== newVal) mobNameInput.value = newVal;
     if (clean) {
       setSavedName(clean);
       updateLandingCareerBadge(clean);
@@ -3890,6 +4030,9 @@ function initHomeUI() {
   }
   if (landingNameInput) {
     landingNameInput.oninput = () => syncNameInputs(landingNameInput.value);
+  }
+  if (mobNameInput) {
+    mobNameInput.oninput = () => syncNameInputs(mobNameInput.value);
   }
 
   // Randomize Runic Slayer Handle Button
@@ -3910,26 +4053,102 @@ function initHomeUI() {
   const stats = getPlayerStats();
   const homeRec = $('home-record');
   if (homeRec) homeRec.textContent = 'WAVE ' + stats.bestWave;
+  const mobRec = $('mob-home-record');
+  if (mobRec) mobRec.textContent = 'WAVE ' + stats.bestWave;
+
+  // Unified Hero Selection Handler (Desktop + Mobile)
+  const HERO_CLASSES = ['knight', 'mage', 'archer'];
+  function switchHeroClass(cls) {
+    G.selectedClass = cls;
+    document.querySelectorAll('.roster-card').forEach((c) => c.classList.toggle('active', c.dataset.cls === cls));
+    document.querySelectorAll('.mob-class-chip').forEach((c) => c.classList.toggle('active', c.dataset.cls === cls));
+    createPlayer(cls);
+    updateHeroDetailsCard(cls);
+    const currentName = (landingNameInput?.value || mobNameInput?.value || '').trim();
+    if (!currentName || currentName === 'Vanguard Sovereign' || currentName === 'Astral Sorcerer' || currentName === 'Verdant Ranger') {
+      const defaultName = getSavedName(cls);
+      syncNameInputs(defaultName);
+    }
+    if (cls === 'knight') Audio.playSpecialSound('aegis');
+    else if (cls === 'mage') Audio.playSpecialSound('singularity');
+    else Audio.playBow();
+  }
 
   const rosterCards = document.querySelectorAll('.roster-card');
   rosterCards.forEach((card) => {
-    card.addEventListener('click', () => {
-      rosterCards.forEach((c) => c.classList.remove('active'));
-      card.classList.add('active');
-      const cls = card.dataset.cls;
-      G.selectedClass = cls;
-      createPlayer(cls);
-      updateHeroDetailsCard(cls);
-      const currentName = (landingNameInput?.value || '').trim();
-      if (!currentName || currentName === 'Vanguard Sovereign' || currentName === 'Astral Sorcerer' || currentName === 'Verdant Ranger') {
-        const defaultName = getSavedName(cls);
-        syncNameInputs(defaultName);
-      }
-      if (cls === 'knight') Audio.playSpecialSound('aegis');
-      else if (cls === 'mage') Audio.playSpecialSound('singularity');
-      else Audio.playBow();
-    });
+    card.addEventListener('click', () => switchHeroClass(card.dataset.cls));
   });
+
+  // Mobile Carousel Buttons (< and >)
+  const mobPrevBtn = $('mob-hero-prev-btn');
+  if (mobPrevBtn) {
+    mobPrevBtn.onclick = () => {
+      const curIdx = HERO_CLASSES.indexOf(G.selectedClass || 'knight');
+      const prevIdx = (curIdx - 1 + HERO_CLASSES.length) % HERO_CLASSES.length;
+      switchHeroClass(HERO_CLASSES[prevIdx]);
+    };
+  }
+  const mobNextBtn = $('mob-hero-next-btn');
+  if (mobNextBtn) {
+    mobNextBtn.onclick = () => {
+      const curIdx = HERO_CLASSES.indexOf(G.selectedClass || 'knight');
+      const nextIdx = (curIdx + 1) % HERO_CLASSES.length;
+      switchHeroClass(HERO_CLASSES[nextIdx]);
+    };
+  }
+
+  // Mobile Bottom Command Deck Chips
+  document.querySelectorAll('.mob-class-chip').forEach((chip) => {
+    chip.addEventListener('click', () => switchHeroClass(chip.dataset.cls));
+  });
+
+  // Mobile Start / Deploy Button
+  const mobStartBtn = $('mob-startbtn');
+  if (mobStartBtn) {
+    mobStartBtn.onclick = () => {
+      Audio.initAudio();
+      startRun(G.selectedClass || 'knight');
+    };
+  }
+
+  // Mobile Tactical Drawer Tabs
+  const mobTabBtns = document.querySelectorAll('.mob-tab-btn');
+  const mobTabPanes = document.querySelectorAll('.mob-tab-pane');
+  mobTabBtns.forEach((btn) => {
+    btn.onclick = () => {
+      mobTabBtns.forEach((b) => b.classList.remove('active'));
+      mobTabPanes.forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      const targetPane = $(`mob-pane-${btn.dataset.tab}`);
+      if (targetPane) targetPane.classList.add('active');
+      const card = $('mob-dossier-card');
+      if (card && card.classList.contains('minimized')) {
+        card.classList.remove('minimized');
+        const chev = $('mob-drawer-chevron');
+        if (chev) chev.innerHTML = getIcon('chevron_down', 14);
+      }
+    };
+  });
+
+  // Mobile Drawer Toggle (Hide/Show to appreciate 3D Character)
+  const mobDrawerToggle = $('mob-drawer-toggle');
+  if (mobDrawerToggle) {
+    mobDrawerToggle.onclick = () => {
+      const card = $('mob-dossier-card');
+      if (card) {
+        card.classList.toggle('minimized');
+        const isMin = card.classList.contains('minimized');
+        const chev = $('mob-drawer-chevron');
+        if (chev) chev.innerHTML = isMin ? getIcon('chevron_up', 14) : getIcon('chevron_down', 14);
+      }
+    };
+  }
+
+  // Mobile Top HUD Modal Triggers
+  const mobLbBtn = $('mob-leaderboard-btn');
+  if (mobLbBtn) mobLbBtn.onclick = () => openLeaderboardModal('all');
+  const mobGuideBtn = $('mob-guide-btn');
+  if (mobGuideBtn) mobGuideBtn.onclick = () => guideModal?.classList.add('show');
 
   const guideOpen = $('guide-open-btn');
   const guideClose = $('guide-close-btn');
@@ -3961,6 +4180,19 @@ function updateHeroDetailsCard(cls) {
 
   const hpcName = $('hpc-name');
   const hpcDesc = $('hpc-desc');
+
+  // Mobile overlay elements
+  const mobBadge = $('mob-hero-badge');
+  const mobName = $('mob-hero-name');
+  const mobTitle = $('mob-hero-title');
+  const mobDurFill = $('mob-bar-dur');
+  const mobDurVal = $('mob-val-dur');
+  const mobMobFill = $('mob-bar-mob');
+  const mobMobVal = $('mob-val-mob');
+  const mobDmgFill = $('mob-bar-dmg');
+  const mobDmgVal = $('mob-val-dmg');
+  const mobHpcN = $('mob-hpc-name');
+  const mobHpcD = $('mob-hpc-desc');
 
   const wfcIcon = $('wfc-icon');
   const wfcName = $('wfc-name');
@@ -3999,6 +4231,19 @@ function updateHeroDetailsCard(cls) {
     if (hpcName) hpcName.textContent = 'Bulwark of the Crown';
     if (hpcDesc) hpcDesc.textContent = '+30% Maximum Health pool and +50% knockback resistance against charging fiends.';
 
+    // Mobile sync
+    if (mobBadge) mobBadge.textContent = 'VANGUARD SOVEREIGN';
+    if (mobName) mobName.textContent = 'IMPERIUN';
+    if (mobTitle) mobTitle.textContent = 'The Royal Sovereign';
+    if (mobDurFill) mobDurFill.style.width = '95%';
+    if (mobDurVal) mobDurVal.textContent = 'HIGH';
+    if (mobMobFill) mobMobFill.style.width = '65%';
+    if (mobMobVal) mobMobVal.textContent = 'MID';
+    if (mobDmgFill) mobDmgFill.style.width = '88%';
+    if (mobDmgVal) mobDmgVal.textContent = 'BURST';
+    if (mobHpcN) mobHpcN.textContent = 'Bulwark:';
+    if (mobHpcD) mobHpcD.textContent = '+30% Max HP & +50% knockback res.';
+
     if (wfcIcon) wfcIcon.innerHTML = getIcon('sword', 20);
     if (wfcName) wfcName.textContent = 'Sword Sweep';
     if (wfcType) wfcType.textContent = 'Melee Arc Cleave';
@@ -4019,6 +4264,19 @@ function updateHeroDetailsCard(cls) {
 
     if (hpcName) hpcName.textContent = 'Cosmic Starfire';
     if (hpcDesc) hpcDesc.textContent = 'Explosive astral projectile impact with piercing area-of-effect detonations.';
+
+    // Mobile sync
+    if (mobBadge) mobBadge.textContent = 'ASTRAL ENCHANTRESS';
+    if (mobName) mobName.textContent = 'ZILI';
+    if (mobTitle) mobTitle.textContent = 'The Astral Sorceress';
+    if (mobDurFill) mobDurFill.style.width = '70%';
+    if (mobDurVal) mobDurVal.textContent = 'MID';
+    if (mobMobFill) mobMobFill.style.width = '75%';
+    if (mobMobVal) mobMobVal.textContent = 'SWIFT';
+    if (mobDmgFill) mobDmgFill.style.width = '95%';
+    if (mobDmgVal) mobDmgVal.textContent = 'EXTREME';
+    if (mobHpcN) mobHpcN.textContent = 'Starfire:';
+    if (mobHpcD) mobHpcD.textContent = 'Piercing AoE explosive starbursts.';
 
     if (wfcIcon) wfcIcon.innerHTML = getIcon('magic', 20);
     if (wfcName) wfcName.textContent = 'Energy Ball';
@@ -4041,6 +4299,19 @@ function updateHeroDetailsCard(cls) {
     if (hpcName) hpcName.textContent = 'Windrunner Pace';
     if (hpcDesc) hpcDesc.textContent = '+12% Base Movement speed and rapid bow tension draw allowing constant kiting.';
 
+    // Mobile sync
+    if (mobBadge) mobBadge.textContent = 'SHADOW STALKER';
+    if (mobName) mobName.textContent = 'AREN';
+    if (mobTitle) mobTitle.textContent = 'The Ghost Ranger';
+    if (mobDurFill) mobDurFill.style.width = '65%';
+    if (mobDurVal) mobDurVal.textContent = 'LEAN';
+    if (mobMobFill) mobMobFill.style.width = '95%';
+    if (mobMobVal) mobMobVal.textContent = 'AGILE';
+    if (mobDmgFill) mobDmgFill.style.width = '85%';
+    if (mobDmgVal) mobDmgVal.textContent = 'PRECISION';
+    if (mobHpcN) mobHpcN.textContent = 'Windrunner:';
+    if (mobHpcD) mobHpcD.textContent = '+12% Move speed & rapid bow draws.';
+
     if (wfcIcon) wfcIcon.innerHTML = getIcon('bow', 20);
     if (wfcName) wfcName.textContent = 'Auto Bow';
     if (wfcType) wfcType.textContent = 'Piercing Hunting Draw';
@@ -4048,22 +4319,43 @@ function updateHeroDetailsCard(cls) {
     if (wfcArc) wfcArc.textContent = 'Range 16m';
   }
 
-  // Populate 3 special talent cards from config
+  // Populate 3 special talent cards from config (Desktop & Mobile)
   if (c.specials && c.specials.length >= 3) {
     if (abIconQ) abIconQ.innerHTML = getIcon(c.specials[0].icon, 18);
     if (abNameQ) abNameQ.textContent = c.specials[0].name;
     if (abCdQ) abCdQ.textContent = `${c.specials[0].cd}s CD`;
     if (abDescQ) abDescQ.textContent = c.specials[0].desc;
 
+    const mobAbNameQ = $('mob-ab-name-q');
+    const mobAbDescQ = $('mob-ab-desc-q');
+    const mobAbCdQ = $('mob-ab-cd-q');
+    if (mobAbNameQ) mobAbNameQ.textContent = c.specials[0].name;
+    if (mobAbDescQ) mobAbDescQ.textContent = c.specials[0].desc;
+    if (mobAbCdQ) mobAbCdQ.textContent = `${c.specials[0].cd}s CD`;
+
     if (abIconE) abIconE.innerHTML = getIcon(c.specials[1].icon, 18);
     if (abNameE) abNameE.textContent = c.specials[1].name;
     if (abCdE) abCdE.textContent = `${c.specials[1].cd}s CD`;
     if (abDescE) abDescE.textContent = c.specials[1].desc;
 
+    const mobAbNameE = $('mob-ab-name-e');
+    const mobAbDescE = $('mob-ab-desc-e');
+    const mobAbCdE = $('mob-ab-cd-e');
+    if (mobAbNameE) mobAbNameE.textContent = c.specials[1].name;
+    if (mobAbDescE) mobAbDescE.textContent = c.specials[1].desc;
+    if (mobAbCdE) mobAbCdE.textContent = `${c.specials[1].cd}s CD`;
+
     if (abIconR) abIconR.innerHTML = getIcon(c.specials[2].icon, 18);
     if (abNameR) abNameR.textContent = c.specials[2].name;
     if (abCdR) abCdR.textContent = `${c.specials[2].cd}s CD`;
     if (abDescR) abDescR.textContent = c.specials[2].desc;
+
+    const mobAbNameR = $('mob-ab-name-r');
+    const mobAbDescR = $('mob-ab-desc-r');
+    const mobAbCdR = $('mob-ab-cd-r');
+    if (mobAbNameR) mobAbNameR.textContent = c.specials[2].name;
+    if (mobAbDescR) mobAbDescR.textContent = c.specials[2].desc;
+    if (mobAbCdR) mobAbCdR.textContent = `${c.specials[2].cd}s CD`;
   }
 }
 
